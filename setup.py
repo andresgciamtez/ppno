@@ -7,7 +7,7 @@ VERSION = '0.0.0'
 PACKAGES = find_packages()
 EXTENSIONS = []
 DESCRIPTION = 'Pressurized Pipe Network Optimizer'
-LONG_DESCRIPTION = open('README.md').read()
+LONG_DESCRIPTION = open('README.md', encoding="utf8").read()
 AUTHOR = 'Andrés García Martínez'
 MAINTAINER_EMAIL = 'ppnoptimizer@gmail.com'
 LICENSE = 'Apache 2.0'
