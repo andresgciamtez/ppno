@@ -1,18 +1,18 @@
-PRESSURIZED PIPE NETWORK OPTIMIZER
-2019 - AndrÈs GarcÌa MartÌnez (ppnoptimizer@gmail.com)
+# PRESSURIZED PIPE NETWORK OPTIMIZER
+2019 - Andr√©s Garc√≠a Mart√≠nez (ppnoptimizer@gmail.com)
 Licensed under the Apache License 2.0. http://www.apache.org/licenses/
 
-DEPENDENCIES
+# DEPENDENCIES
 Requires SciPy v1.2 (www.scipy.org/)
 
-PURPOSE
+# PURPOSE
 The program optimizes the pipe diameters of a pressure pipes network defined by an Epanet2 model. The result is the selection of the necessary tubes to meet the minimum pressure requirements in the specified nodes of the network.
 
-RUN
+# RUN
 Type: 'python ppno.py problem.ext' in the command prompt; where 'problem.ext' is the data problem definition file.
 
-PROBLEM DEFINITION
-The file input have a similar structure to an Epanet inp file, it must have extension ext. The sections are indicated by 6 section-headed labels (ì[]î). These are: TITLE, INP, OPTIONS, PIPES, PRESSURES and CATALOG. The file ends with the closing line [END]. Apart from the closing line, it is not necessary that the sections have a predetermined order.
+# PROBLEM DEFINITION
+The file input have a similar structure to an Epanet inp file, it must have extension ext. The sections are indicated by 6 section-headed labels (‚Äú[]‚Äù). These are: TITLE, INP, OPTIONS, PIPES, PRESSURES and CATALOG. The file ends with the closing line [END]. Apart from the closing line, it is not necessary that the sections have a predetermined order.
 
 The TITLE section allows to include a description of the problem. It is not mandatory, and there are not limitations for the lines of extension in this.
 Example:
@@ -28,7 +28,7 @@ The OPTIONS section contains the calculation options. Two options must be specif
 - 'GD', to select the Gradient Descent;
 - 'DE', to select Differential Evolution; and
 - 'DA', to select Dual Simulated Annealing.
-Secondly, it is possible improve slightly the final solution in small networks by selecting ìYESî in a line starting by the word "Polish". Otherwise, ìNoî must be indicated. 
+Secondly, it is possible improve slightly the final solution in small networks by selecting ‚ÄúYES‚Äù in a line starting by the word "Polish". Otherwise, ‚ÄúNo‚Äù must be indicated. 
 Example:
 [OPTIONS]
 Method GD
@@ -64,11 +64,11 @@ PVC 406.4    0.025    70.40
 It must be considered that it is possible to include different types of material (different roughness) in each series. The zero diameter is equivalent to an eliminate-pipe option. Similarly, a no-substitution-pipe consist in setting the price to 0 in an existing diameter pipe.
 In a similar way to the Epanet file, the ";" character is the comment mark, this and all the text follows it on the line will be ignored. Also, lines that contain only spaces or only spaces before the character ";" are ignored.
 
-RESULTS
-The results of the program are shown on the console, and the program returning the dimensioned network in a new Epanet file. The solved file name includes an indicator according to the calculation method used: ë_Solved_GDí, ë_Solved_DEí, or ë_Solved_DAí. 
+# RESULTS
+The results of the program are shown on the console, and the program returning the dimensioned network in a new Epanet file. The solved file name includes an indicator according to the calculation method used: ‚Äò_Solved_GD‚Äô, ‚Äò_Solved_DE‚Äô, or ‚Äò_Solved_DA‚Äô. 
 If a refinement of the final solution is selected, by the polish option, an additional file is generated, which name is included: "+Polish".
 
-EXAMPLES
+# EXAMPLES
 Several sample problems are included in the samples folder.
 
 Cuenca, June of 2019
