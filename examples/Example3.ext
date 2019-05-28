@@ -1,0 +1,77 @@
+[TITLE]
+ New York example by Murphy, Simpson and Dandy Res.Rep. No. R109. Dec. 1993
+
+[INP]
+;Epanet inp file
+./examples/NYT.inp
+
+[OPTIONS]
+Algorithm DA ; GD (Gradient Descent), DE (Differential Evolution) or DA (Dual Annaeling)
+Polish NO    ; Polish will make a slight final improvement, YES/NO
+
+[PIPES]
+;ID series
+101    NYT
+102    NYT
+103    NYT
+104    NYT
+105    NYT
+106    NYT
+107    NYT
+108    NYT
+109    NYT
+110    NYT
+111    NYT
+112    NYT
+113    NYT
+114    NYT
+115    NYT
+116    NYT
+117    NYT
+118    NYT
+119    NYT
+120    NYT
+121    NYT
+
+[PRESSURES]
+;ID required_pressure
+2    110.546
+3    110.546
+4    110.546
+5    110.546
+6    110.546
+7    110.546
+8    110.546
+9    110.546
+10    110.546
+11    110.546
+12    110.546
+13    110.546
+14    110.546
+15    110.546
+16    112.714
+17    118.263
+18    110.546
+19    110.546
+20    110.546
+
+[CATALOG]
+;series diameter roughness     price
+NYT        0.001     100.0      0.00 ; 0.001 = not replace pipe
+NYT           36     100.0     93.50
+NYT           48     100.0    134.00
+NYT           60     100.0    176.00
+NYT           72     100.0    221.00
+NYT           84     100.0    267.00
+NYT           96     100.0    316.00
+NYT          108     100.0    365.00
+NYT          120     100.0    417.00
+NYT          132     100.0    469.00
+NYT          144     100.0    522.00
+NYT          156     100.0    577.00
+NYT          168     100.0    632.00
+NYT          180     100.0    689.00
+NYT          192     100.0    746.00
+NYT          204     100.0    804.00
+
+[END]

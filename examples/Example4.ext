@@ -1,0 +1,95 @@
+[TITLE]
+Hanoi example by Fujiwara and Khang, Water Resources Research, 1990
+Simulating stretches out of service by adding controls.
+
+[INP]
+;Epanet inp file
+./examples/CNT.inp
+
+[OPTIONS]
+Algorithm GD ; GD (Gradient Descent), DE (Differential Evolution) or DA (Dual Annaeling)
+Polish YES   ; Polish will make a slight final improvement, YES/NO
+
+[PIPES]
+; ID series
+1    PVC
+2    PVC
+3    PVC
+4    PVC
+5    PVC
+6    PVC
+7    PVC
+8    PVC
+9    PVC
+10    PVC
+11    PVC
+12    PVC
+13    PVC
+14    PVC
+15    PVC
+16    PVC
+17    PVC
+18    PVC
+19    PVC
+20    PVC
+21    PVC
+22    PVC
+23    PVC
+24    PVC
+25    PVC
+26    PVC
+27    PVC
+28    PVC
+29    PVC
+30    PVC
+31    PVC
+32    PVC
+33    PVC
+34    PVC
+
+[PRESSURES]
+; ID required_pressure
+2    20.0
+3    20.0
+4    20.0
+5    20.0
+6    20.0
+7    20.0
+8    20.0
+9    20.0
+10    20.0
+11    20.0
+12    20.0
+13    20.0
+14    20.0
+15    20.0
+16    20.0
+17    20.0
+18    20.0
+19    20.0
+20    20.0
+21    20.0
+22    20.0
+23    20.0
+24    20.0
+25    20.0
+26    20.0
+27    20.0
+28    20.0
+29    20.0
+30    20.0
+31    20.0
+32    20.0
+
+[CATALOG]
+; Series    diameter    roughness     price
+PVC            304.8        130.0     45.73
+PVC            406.4        130.0     70.40
+PVC            508.0        130.0     98.39
+PVC            609.6        130.0    129.33
+PVC            762.0        130.0    180.75
+PVC           1016.0        130.0    278.28
+PVC           1219.2        130.0    365.81
+PVC           1524.0        130.0    511.23
+
+[END]
