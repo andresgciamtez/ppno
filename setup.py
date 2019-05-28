@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from setuptools import setup, find_packages
 from distutils.core import Extension
 
@@ -7,7 +8,7 @@ PACKAGES = find_packages()
 EXTENSIONS = []
 DESCRIPTION = 'Pressurized Pipe Network Optimizer'
 LONG_DESCRIPTION = open('README.md').read()
-AUTHOR = 'Andrés García Martínez'
+AUTHOR = 'AndrÃ©s GarcÃ­a MartÃ­nez'
 MAINTAINER_EMAIL = 'ppnoptimizer@gmail.com'
 LICENSE = 'Apache 2.0'
 URL = 'https://github.com/andresgciamtez/ppno'
