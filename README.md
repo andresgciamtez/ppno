@@ -5,8 +5,6 @@ Licensed under the Apache License 2.0. http://www.apache.org/licenses/
 # DEPENDENCIES
 Requires:
 scipy v1.2
-numpy v1.13 (not use version > 1.13)
-mumpy-base
 
 # PURPOSE
 The program optimizes the pipe diameters of a pressure pipes network defined by an Epanet2 model. The result is the selection of the necessary tubes to meet the minimum pressure requirements in the specified nodes of the network.
