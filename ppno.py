@@ -4,7 +4,7 @@ Andrés García Martínez (ppnoptimizer@gmail.com)
 Licensed under the Apache License 2.0. http://www.apache.org/licenses/
 """
 from sys import argv
-from time import clock, localtime, strftime
+from time import perf_counter, localtime, strftime
 import numpy as np   
 import toolkit as et
 import htxt as ht
@@ -256,7 +256,7 @@ class Ppn():
             
         The optimized epanet model is saved in a new file.
         '''
-        startime = clock()
+        startime = perf_counter()
         solution = None
         reducted = False
         print('SOLVING')
@@ -410,7 +410,7 @@ class Ppn():
         
         # DURATION
         print('Finished at:', strftime("%H:%M:%S"),end = '')
-        print('. Duration = ',clock()-startime)
+        print('. Duration = ',perf_counter()-startime)
         print('-'*80)
         
         return solution
