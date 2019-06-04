@@ -2,9 +2,9 @@
 2019 - Andrés García Martínez (ppnoptimizer@gmail.com)
 Licensed under the Apache License 2.0. http://www.apache.org/licenses/
 
-# DEPENDENCIES
-Requires:
-scipy v1.2
+# INSTALLATION
+pip install ppno
+Requires scipy v1.2
 
 # PURPOSE
 The program optimizes the pipe diameters of a pressure pipes network defined by an Epanet2 model. The result is the selection of the necessary tubes to meet the minimum pressure requirements in the specified nodes of the network.
