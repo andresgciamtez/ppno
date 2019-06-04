@@ -4,6 +4,7 @@ Licensed under the Apache License 2.0. http://www.apache.org/licenses/
 
 # INSTALLATION
 pip install ppno
+
 Requires scipy v1.2
 
 # PURPOSE
