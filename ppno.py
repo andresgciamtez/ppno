@@ -199,7 +199,7 @@ class Ppn():
                 
                 # UPDATE DEFICIT ARRAY
                 if mode == 'PD':
-                    if deficits[index] < nodaldeficit:
+                    if deficits[index] > nodaldeficit:
                        deficits[index] = nodaldeficit 
             
             # CALCULATE MAXIMUM UNITARY HEADLOSS ARRAY
@@ -441,8 +441,8 @@ class Ppn():
             print(m)
         print('-'*80)
         print('Total cost: {:10.2f}'.format(cost))
-        print('='*80)            
-    
+        print('='*80)
+  
 def main(argv):
     #RUN AN OPTIMIZATION
     print('*'*80)
