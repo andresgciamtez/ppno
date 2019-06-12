@@ -4,8 +4,7 @@ Licensed under the Apache License 2.0. http://www.apache.org/licenses/
 
 # DEPENDENCIES
 Requires:
-SciPy v1.2 (www.scipy.org/)
-PYGMO
+SciPy v1.2 (www.scipy.org/) and PYGMO (https://esa.github.io/pagmo2/)
 
 # PURPOSE
 The program optimizes the pipe diameters of a pressure pipes network defined by an Epanet2 model. The result is the selection of the necessary tubes to meet the minimum pressure requirements in the specified nodes of the network.
