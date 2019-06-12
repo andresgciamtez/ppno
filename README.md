@@ -73,4 +73,4 @@ If a refinement of the final solution is selected, by the polish option, an addi
 # EXAMPLES
 Several sample problems are included in the samples folder.
 
-Cuenca, June of 2019
+Cuenca, June 2019
