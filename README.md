@@ -4,9 +4,9 @@ Licensed under the Apache License 2.0. http://www.apache.org/licenses/
 
 # REQUERIMENTS
 
-numpy
-scipy v1.2
-PYGMO
+- numpy
+- scipy v1.2
+- PYGMO
 
 
 # PURPOSE
