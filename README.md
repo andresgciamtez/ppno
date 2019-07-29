@@ -4,7 +4,6 @@ Licensed under the Apache License 2.0. http://www.apache.org/licenses/
 
 # REQUERIMENTS
 
-- entoolkit
 - numpy
 - scipy v1.2
 - pygmo
