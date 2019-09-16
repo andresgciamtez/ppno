@@ -7,7 +7,7 @@ Requires:
 SciPy v1.2 (www.scipy.org/) and PYGMO (https://esa.github.io/pagmo2/)
 
 # PURPOSE
-The program optimizes the pipe diameters of a pressure pipes network defined by an Epanet2 model. The result is the selection of the necessary diameters (roughness also is consider) to meet the minimum pressure requirements in the specified nodes of the network.
+The program optimizes the pipe diameters of a pressure pipes network defined by an Epanet v2 model (https://www.epa.gov/water-research/epanet). The result is the selection of the necessary diameters (roughness also is consider) to meet the minimum pressure requirements in the specified nodes of the network.
 
 # RUN
 Type:
@@ -54,7 +54,7 @@ Example:
 pip1    PVC
 pip2    PVC
 pip3    FD
-```'
+```
 
 The PRESSURES section contains the nodes in which it is necessary to guarantee a minimum pressure. Each node is indicated by its identifier "ID" according to the Epanet model, followed by the minimum pressure. It is not necessary to specify all the nodes of the model.
 Example:
@@ -98,4 +98,4 @@ If a refinement of the final solution is selected, by the polish option, an addi
 # EXAMPLES
 Several example problems are included in the examples folder.
 
-Cuenca, June 2019
+Cuenca, September 2019
