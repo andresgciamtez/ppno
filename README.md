@@ -27,9 +27,10 @@ Hanoi example by Fujiwara and Khang, Water Resources Research, 1990
 ```
 The INP section contains the name of the Epanet input file (inp). It must include the full path in the system, unless it is stored in the current path. The use of spaces is not recommended.
 Example:
-> [INP]
+```
+[INP]
 > C:\my_path\HAN.inp
-
+```
 The OPTIONS section contains the calculation options. Two options must be specified: First, the algorithm trough a line beginning by the word 'Algorithm' followed by a code among:
 
 Identifier | Algorithm
