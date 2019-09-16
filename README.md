@@ -7,7 +7,7 @@ Requires:
 SciPy v1.2 (www.scipy.org/) and PYGMO (https://esa.github.io/pagmo2/)
 
 # PURPOSE
-The program optimizes the pipe diameters of a pressure pipes network defined by an Epanet2 model. The result is the selection of the necessary tubes to meet the minimum pressure requirements in the specified nodes of the network.
+The program optimizes the pipe diameters of a pressure pipes network defined by an Epanet2 model. The result is the selection of the necessary diameters (roughness also is consider) to meet the minimum pressure requirements in the specified nodes of the network.
 
 # RUN
 Type: 'python ppno.py problem.ext' in the command prompt; where 'problem.ext' is the data problem definition file.
