@@ -13,7 +13,7 @@ The program optimizes the pipe diameters of a pressure pipes network defined by 
 Type:
 ```console
 > python ppno.py problem.ext
-````
+```
 in the command prompt; where 'problem.ext' is the data problem definition file.
 
 # PROBLEM DEFINITION
