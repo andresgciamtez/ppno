@@ -3,7 +3,7 @@ Balerma Irrigation Network. Almería (Spain)
 
 [INP]
 ;Epanet inp file
-D:/Documentos/Python/ppno/examples/BIN.inp
+./examples/BIN.inp
 
 [OPTIONS]
 Algorithm NSGA2

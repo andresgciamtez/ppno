@@ -4,7 +4,7 @@ MAGMOREDES (Perú)
 
 [INP]
 ;Epanet inp file
-D:/Documentos/Python/ppno/examples/HAN-Comparar.inp
+./examples/HAN.inp
 
 [OPTIONS]
 
