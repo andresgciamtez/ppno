@@ -461,7 +461,7 @@ def main(argv):
     #RUN AN OPTIMIZATION
     print('*'*80)
     print('PRESSURIZED PIPE NETWORK OPTIMIZER')
-    print('v0.1', 'ppnoptimizer@gmail.com')
+    print('ppnoptimizer@gmail.com')
     print('Licensed under the Apache License 2.0. http://www.apache.org/licenses/')
     print('*'*80)
 
