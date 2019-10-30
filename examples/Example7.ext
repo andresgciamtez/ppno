@@ -4,7 +4,7 @@ MAGMOREDES (Perú)
 
 [INP]
 ;Epanet inp file
-D:/Documentos/Python/ppno/examples/HAN-Comparar.inp
+./examples/HAN.inp
 
 [OPTIONS]
 
@@ -84,11 +84,11 @@ Polish YES      ; Polish will make a slight final improvement, YES/NO
 
 [CATALOG]
 ;  series  diameter    roughness    price
-PVC     304.8        0.0015    45.73
-PVC     406.4        0.0015    70.40
-PVC     508.0        0.0015    98.39
-PVC     609.6        0.0015   129.33
-PVC     762.0        0.0015   180.75
-PVC     1016.0        0.0015   278.28
+PVC     289.9        130.0    45.73
+PVC     386.6        130.0    70.40
+PVC     483.2        130.0    98.39
+PVC     579.9        130.0   129.33
+PVC     724.8        130.0   180.75
+PVC     966.4        130.0   278.28
 
 [END]
