@@ -32,6 +32,7 @@ class Ppn():
         self.inpfn = sections['INP'][0]
         
         # OPEN EPANET MODEL AND HYDRAULIC MODEL
+        print(self.problemfn)
         et.ENopen(self.inpfn, self.inpfn[:-4]+'.rpt')
         et.ENopenH()
         print('-'*80)
