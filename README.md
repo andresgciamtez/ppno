@@ -1,4 +1,4 @@
-﻿# PRESSURIZED PIPE NETWORK OPTIMIZER V0.2
+﻿# PRESSURIZED PIPE NETWORK OPTIMIZER V0.1
 2019 - Andrés García Martínez (ppnoptimizer@gmail.com)
 Licensed under the Apache License 2.0. http://www.apache.org/licenses/
 
