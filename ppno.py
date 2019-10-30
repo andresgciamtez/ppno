@@ -12,6 +12,7 @@ import htxt as ht
 A_GD = 0
 A_DE = 1
 A_DA = 2
+A_NSGA2 = 3
 PENALTY = 1e24
 
 class Ppn():
@@ -23,6 +24,7 @@ class Ppn():
         '''problemfn: file name 
             definition problem file name'''
         # READ PROBLEM FILE NAME
+        self.problemfn = problemfn
         myht = ht.Htxtf(problemfn)
         sections = myht.read()
         
@@ -50,7 +52,10 @@ class Ppn():
                 elif value == 'DA':
                     self.algorithm = A_DA
                     msg += 'Dual Annaeling.'
-            
+                elif value == 'NSGA2':
+                    self.algorithm = A_NSGA2
+                    msg += 'NSGA-II.'
+                    
             elif key.upper() == 'POLISH':
                 if value.upper() in ['YES', 'Y']:
                     self.polish = True
@@ -320,7 +325,14 @@ class Ppn():
                 solution = self.get_x().copy()
             else:
                 solution = None           
-        
+       
+        if self.algorithm == A_NSGA2:
+            # NSGA-II
+            from gaoptimizer import nsga2
+            tmp = nsga2(self)[1]
+            if type(tmp) != type(None):
+                solution = np.array(tmp,np.int)
+                
         if self.polish and (type(solution) != type(None)):
             # POLISH ALGORITHM    
             maxredxset = [0.0,[]]
@@ -399,6 +411,8 @@ class Ppn():
                 solvedfn += 'DE'
             elif self.algorithm == A_DA:
                 solvedfn += 'DA'
+            elif self.algorithm == A_NSGA2:
+                solvedfn += 'NSGA2'
             if reducted:
                 solvedfn += '+Polish.inp'
             else:
@@ -447,7 +461,7 @@ def main(argv):
     #RUN AN OPTIMIZATION
     print('*'*80)
     print('PRESSURIZED PIPE NETWORK OPTIMIZER')
-    print('v0.0', 'ppnoptimizer@gmail.com')
+    print('v0.1', 'ppnoptimizer@gmail.com')
     print('Licensed under the Apache License 2.0. http://www.apache.org/licenses/')
     print('*'*80)
 
