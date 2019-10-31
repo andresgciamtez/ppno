@@ -1,4 +1,4 @@
-﻿# PRESSURIZED PIPE NETWORK OPTIMIZER V0.1
+﻿# PRESSURIZED PIPE NETWORK OPTIMIZER
 2019 - Andrés García Martínez (ppnoptimizer@gmail.com)
 Licensed under the Apache License 2.0. http://www.apache.org/licenses/
 
@@ -13,7 +13,7 @@ The program optimizes the pipe diameters of a pressure pipes network defined by 
 Type:
 ```console
 > python ppno.py problem.ext
-````
+```
 in the command prompt; where 'problem.ext' is the data problem definition file.
 
 # PROBLEM DEFINITION
