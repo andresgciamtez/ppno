@@ -8,9 +8,6 @@ class Htxtf(object):
     """Read and write sections of headed txt files"""
     def __init__(self, fname):
         self.file = open(fname, 'r')
-        
-    def __del__(self):
-        self.file.close()
     
     def read_section(self, secname):
         """Read a section of name secname [secname] from a file.

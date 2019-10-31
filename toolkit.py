@@ -115,7 +115,6 @@ def ENgetnodevalue(index, paramcode):
                   EN_SOURCEQUAL Source quality
                   EN_SOURCEPAT  Source pattern index
                   EN_SOURCETYPE Source type (See note below)
-                  EN_TANKLEVEL  Initial water level in tank
                   EN_DEMAND     * Actual demand
                   EN_HEAD       * Hydraulic head
                   EN_PRESSURE   * Pressure
@@ -125,6 +124,7 @@ def ENgetnodevalue(index, paramcode):
                    ** primary demand category is last on demand list
 
                The following parameter codes apply only to storage tank nodes:
+                  EN_TANKLEVEL  Initial water level in tank 
                   EN_INITVOLUME  Initial water volume
                   EN_MIXMODEL    Mixing model code (see below)
                   EN_MIXZONEVOL  Inlet/Outlet zone volume in a 2-compartment tank
@@ -593,6 +593,8 @@ def ENsolveQ():
 def ENopenQ():
     """Opens the water quality analysis system"""
     ierr= _lib.ENopenQ()
+    if ierr!=0: raise ENtoolkitError(ierr)
+
 
 
 def ENinitQ(flag=None):
@@ -837,13 +839,13 @@ EN_SAVE          = 1
 EN_INITFLOW      = 10     # /* Re-initialize flow flag   */
 
 
-FlowUnits= { EN_CFS :"cfs"   ,
-             EN_GPM :"gpm"   ,
-             EN_MGD :"MGD" ,
-             EN_IMGD:"IMGD"   ,
-             EN_AFD :"afd"  ,
-             EN_LPS :"L/s"   ,
-             EN_LPM :"L/m"   ,
-             EN_MLD :"ML/d"  ,
-             EN_CMH :"m3/h"  ,
-             EN_CMD :"m3/d"  }
+FlowUnits= { EN_CFS :"CFS"   ,
+             EN_GPM :"GPM"   ,
+             EN_MGD :"MGD"   ,
+             EN_IMGD:"IMGD"  ,
+             EN_AFD :"AFD"   ,
+             EN_LPS :"LPS"   ,
+             EN_LPM :"LPM"   ,
+             EN_MLD :"MLD"   ,
+             EN_CMH :"CMH"   ,
+             EN_CMD :"CMD"}
