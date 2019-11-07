@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-*** READ AND WRITE FROM/TO []-HEADED TXT FILES ***
+*** READ AND WRITE FROM/TO []-HEADER TXT FILES ***
 Andrés García Martínez (agarciam@citop.es)
 Licensed under the Apache License 2.0. http://www.apache.org/licenses/
 """
 class Htxtf(object):
-    """Read and write sections of headed txt files"""
+    """Read and write sections of header txt files"""
     def __init__(self, fname):
         self.file = open(fname, 'r')
-    
+
     def read_section(self, secname):
         """Read a section of name secname [secname] from a file.
         return a list of cleaned strings: remove duplicate spaces and coments
@@ -21,16 +21,16 @@ class Htxtf(object):
             cnt += 1
             txt = line[0:line.find(';')]
             if target:
-                if ('[' in txt):
+                if '[' in txt:
                     break
                 else:
-                    if len(txt) > 0:
-                        txt = tuple( c.strip() for c in txt.split())
-                        section.append(txt)    
+                    if txt:
+                        txt = tuple(c.strip() for c in txt.split())
+                        section.append(txt)
             if not(target) and '['+secname+']' in txt:
                 target = True
         return section
-    
+
     def read(self):
         """Return a dictionary which keys are the section names, and the values
         the lines."""
@@ -46,14 +46,14 @@ class Htxtf(object):
                 else:
                     sections[secname] = []
             else:
-                if len(txt) > 0:
+                if txt:
                     sections[secname].append(txt)
         return sections
-    
+
     def line_to_tuple(self, line):
         '''Converts a line text to a tuple'''
-        return tuple( c.strip() for c in line.split())
-    
+        return tuple(c.strip() for c in line.split())
+
     def tuple_to_line(self, tup, sep='    '):
         '''Converts a tuple to a line text. Values are separated by sep.'''
         line = ''

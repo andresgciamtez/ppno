@@ -1,9 +1,8 @@
 ﻿# -*- coding: utf-8 -*-
 from setuptools import setup, find_packages
-from distutils.core import Extension
 
 DISTNAME = 'ppno'
-VERSION = '0.1.1'
+VERSION = '0.1.2'
 PACKAGES = find_packages()
 LONG_DESCRIPTION = open('README.md', encoding="utf8").read()
 
