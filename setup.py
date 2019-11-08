@@ -1,8 +1,9 @@
 ﻿# -*- coding: utf-8 -*-
+
 from setuptools import setup, find_packages
 
 DISTNAME = 'ppno'
-VERSION = '0.1.2'
+VERSION = '0.1.3'
 PACKAGES = find_packages()
 LONG_DESCRIPTION = open('README.md', encoding="utf8").read()
 
@@ -15,5 +16,6 @@ setup(name='ppno',
       author='Andrés García Martínez',
       author_email='ppnoptimizer@gmail.com',
       license='Apache 2.0',
-      url='https://github.com/andresgciamtez/ppno'
+      url='https://github.com/andresgciamtez/ppno',
+      install_requires=['numpy', 'scipy', 'pygmo']
      )
