@@ -1,14 +1,18 @@
 ﻿# -*- coding: utf-8 -*-
+
 """PRESSURIZED PIPE NETWORK OPTIMIZER
-Andrés García Martínez (ppnoptimizer@gmail.com)
+
+https://github.com/andresgciamtez/ppno (ppnoptimizer@gmail.com)
 Licensed under the Apache License 2.0. http://www.apache.org/licenses/
 """
+
 import sys
 from time import perf_counter, localtime, strftime
 import numpy as np
 import toolkit as et
 import htxt as ht
 
+# DECLARATIONS
 A_GD = 0
 A_DE = 1
 A_DA = 2
@@ -16,13 +20,12 @@ A_NSGA2 = 3
 PENALTY = 1e24
 
 class Ppn():
-    '''Base class for a presurized pipe network optimization problem
+    '''Base class for a presurized pipe network optimization.
 
-    inpfn: str, definition problem file name (.ext)
+    problemfn: str, definition problem file name (.ext)
     '''
     def __init__(self, problemfn):
-        '''problemfn: file name
-            definition problem file name'''
+
         # READ PROBLEM FILE NAME
         self.problemfn = problemfn
         myht = ht.Htxtf(problemfn)
@@ -47,13 +50,13 @@ class Ppn():
                 if value == 'GD':
                     self.algorithm = A_GD
                     msg += 'Gradient Descent.'
-                elif value == 'DE':
+                if value == 'DE':
                     self.algorithm = A_DE
                     msg += 'Differential Evolution.'
-                elif value == 'DA':
+                if value == 'DA':
                     self.algorithm = A_DA
                     msg += 'Dual Annaeling.'
-                elif value == 'NSGA2':
+                if value == 'NSGA2':
                     self.algorithm = A_NSGA2
                     msg += 'NSGA-II.'
 
@@ -81,6 +84,7 @@ class Ppn():
             l = et.ENgetlinkvalue(ix, et.EN_LENGTH)
             tmp.append((ix, ide, l, series))
         self.pipes = np.array(tmp, dt)
+        self.bounds = None
         print('%i pipe/s to size was/were loaded.' %(len(self.pipes)))
 
         # READ PRESSURES
@@ -134,7 +138,7 @@ class Ppn():
         print('-'*80)
 
     def set_x(self, x):
-        '''Set x updating the hydraulic model
+        '''Set x updating the hydraulic model.
 
         x: numpy array of integers containing the size of the pipes, where
             size: int, index of series in catalog.
@@ -144,13 +148,11 @@ class Ppn():
 
     def get_x(self):
         '''Return x
-
         '''
         return self._x
 
     def _update(self):
-        '''Update pipe diameter and roughness in the epanet model
-        '''
+        '''Update pipe diameter and roughness in the epanet model.'''
         for index, pipe in np.ndenumerate(self.pipes):
             ix = pipe['ix']
             series = self.catalog[pipe['series']]
@@ -161,19 +163,16 @@ class Ppn():
             et.ENsetlinkvalue(ix, et.EN_ROUGHNESS, r)
 
     def check(self, mode='TF'):
-        '''Run a check of the pressures in the epanet model
+        '''Run a check of the pressures in the epanet model.
 
         mode: str, can be: 'TF', 'GD', 'PD'
-
         Return
         ------
         Accordig to mode, returns:
             'TF', status: boolean, calculated pressures are not lower than required
-
             'GD', (status,headlosses): tuple, where
                 headlosses: numpy descend ordered array by headloss pipe index
                 where index: int, is the index of pipe in pipes (not epanet ix).
-
             'PD', deficits: numpy array. Nodal pressure deficits, where
                 deficit: float, = required presure - calculated pressure;
                 array index corresponds with node in nodes (not epanet ix).
@@ -235,12 +234,13 @@ class Ppn():
             return deficits
 
     def save_file(self, fn):
-        '''Save inp file updating d and roughness'''
+        '''Save inp file updating d and roughness.'''
+
         # UPDATE AND SAVE MODEL
         et.ENsaveinpfile(fn)
 
     def get_cost(self):
-        '''Return the network cost. Sum of length x price for each pipe'''
+        '''Return the network cost. Sum of length x price for each pipe.'''
         acumulate = 0.0
         x = self.get_x()
         for index, pipe in np.ndenumerate(self.pipes):
@@ -251,15 +251,13 @@ class Ppn():
 
     # SOLVER
     def solve(self):
-        '''Run the optimization of the pressurized pipe network
+        '''Run the optimization.
 
         Return
         ------
         The best solution found , where
             solution: numpy int array, sizes of pipes, according to series.
-
         If no solution is found return None.
-
         The optimized epanet model is saved in a new file.
         '''
         startime = perf_counter()
@@ -337,14 +335,11 @@ class Ppn():
             # POLISH ALGORITHM
             maxredxset = [0.0, []]
             def search_reduc(savings, redxset):
-                '''
-                Searh possible reduction of pipe diameters
+                '''Search possible reduction of pipe diameters.
 
                 redxset: list of ordered by index pipe-set which diameter can
                     be reduced 1-step according to pipe series.
-
                 savings: reduction of cost reached applying redxset
-
                 If a pipe can be reduced, it is added, starting a recursively
                 precces that stop when no pipe can be reduced, then the reduction
                 cost is compared whith previous max reduccion, updating it.
@@ -430,7 +425,7 @@ class Ppn():
         return solution
 
     def pretty_print(self, x):
-        '''Print the solution in a readable format'''
+        '''Print the solution in a readable format.'''
         # PRINT SOLUTION
         cost = 0
         print('*** SOLUTION ***')
@@ -460,9 +455,7 @@ class Ppn():
 def main(argv):
     #RUN AN OPTIMIZATION
     print('*'*80)
-    print('PRESSURIZED PIPE NETWORK OPTIMIZER')
-    print('ppnoptimizer@gmail.com')
-    print('Licensed under the Apache License 2.0. http://www.apache.org/licenses/')
+    print(__doc__)
     print('*'*80)
 
     # LOAD PROBLEM

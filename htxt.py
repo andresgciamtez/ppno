@@ -1,11 +1,16 @@
 # -*- coding: utf-8 -*-
-"""
-*** READ AND WRITE FROM/TO []-HEADER TXT FILES ***
-Andrés García Martínez (agarciam@citop.es)
+
+"""READ AND WRITE FROM/TO []-HEADER TXT FILES
+
+https://github.com/andresgciamtez/ppno (ppnoptimizer@gmail.com)
 Licensed under the Apache License 2.0. http://www.apache.org/licenses/
 """
-class Htxtf(object):
-    """Read and write sections of header txt files"""
+
+class Htxtf():
+    """Read and write sections of header txt files
+
+    fname: str, []-header txt file name
+    """
     def __init__(self, fname):
         self.file = open(fname, 'r')
 

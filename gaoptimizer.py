@@ -1,6 +1,8 @@
 ﻿# -*- coding: utf-8 -*-
-"""PRESSURIZED PIPE NETWORK OPTIMIZING BY PYGMO
-Andrés García Martínez (agarciam@citop.es)
+
+"""PRESSURIZED PIPE NETWORK OPTIMIZER
+
+https://github.com/andresgciamtez/ppno (ppnoptimizer@gmail.com)
 Licensed under the Apache License 2.0. http://www.apache.org/licenses/
 """
 
@@ -8,12 +10,12 @@ from time import perf_counter
 import numpy as np
 import pygmo as pg
 
-# PARAMETERS
-GENERATIONSPERTRIAL = 100
-POPULATIONSIZE = 100
-MAXTRIALS = 250
-MAXNOCHANGES = 10
-MAXTIME = 10*60
+# DECLARATIONS
+GENERATIONS_PER_TRIAL = 100
+POPULATION_SIZE = 100
+MAX_TRIALS = 250
+MAX_NO_CHANGES = 10
+MAX_TIME = 10*60
 
 class PPNOProblem():
     def __init__(self, ppn):
@@ -27,9 +29,7 @@ class PPNOProblem():
         return [f1, f2]
 
     def get_bounds(self):
-        lb = self.mynet.lbound
-        ub = self.mynet.ubound
-        return (lb, ub)
+        return self.mynet.lbound, self.mynet.ubound
 
     def get_nobj(self):
         return 2
@@ -42,24 +42,30 @@ class PPNOProblem():
 
 def nsga2(ppn):
     print('*** NSGA-II ALGORITHM ***')
+
     # INSTANCIATE A PYGMO PROBLEM CONSTRUCTING IT FROM A UDP
     inittime = perf_counter()
     prob = pg.problem(PPNOProblem(ppn))
     generations = trials = nochanges = 0
     best_f = best_x = None
+
     # INSTANCIATE THE PYGMO ALGORITM NSGA-II
-    algo = pg.algorithm(pg.nsga2(gen=GENERATIONSPERTRIAL))
+    algo = pg.algorithm(pg.nsga2(gen=GENERATIONS_PER_TRIAL))
+
     # INSTANCIATE A POPULATION
-    pop = pg.population(prob, size=POPULATIONSIZE)
+    pop = pg.population(prob, size=POPULATION_SIZE)
     while True:
+
         # RUN THE EVOLUION
         pop = algo.evolve(pop)
         trials += 1
-        generations += GENERATIONSPERTRIAL
+        generations += GENERATIONS_PER_TRIAL
+
         # EXTRACT RESULTS AND SEARCH THE BEST
         fits, vectors = pop.get_f(), pop.get_x()
         new_f = new_x = None
         for fit, vector in zip(fits, vectors):
+
             # VALID SOLUTION
             if fit[1] <= 0:
                 if isinstance(new_f, type(None)):
@@ -68,7 +74,6 @@ def nsga2(ppn):
                 elif new_f[0] > fit[0]:
                     new_f = fit
                     new_x = vector
-
         if not isinstance(new_f, type(None)):
             if isinstance(best_f, type(None)):
                 best_f = new_f
@@ -80,18 +85,16 @@ def nsga2(ppn):
                     nochanges = 0
                 else:
                     nochanges += 1
-
         if not isinstance(best_f, type(None)):
             print('Generations: %i '%(generations), end='')
             print('Cost: %.2f Pressure deficit: %0.3f '%(best_f[0], best_f[1]))
-
-        if (perf_counter()-inittime) >= MAXTIME:
+        if (perf_counter()-inittime) >= MAX_TIME:
             print('Maximum evolution time was reached.')
             break
-        elif trials >= MAXTRIALS:
+        elif trials >= MAX_TRIALS:
             print('Maximum number of trials was reached.')
             break
-        elif nochanges >= MAXNOCHANGES:
+        elif nochanges >= MAX_NO_CHANGES:
             print('Objective function value was repeated %i times.'%(nochanges))
             break
     return (best_f, best_x)

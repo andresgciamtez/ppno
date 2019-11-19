@@ -1,7 +1,8 @@
-"""
-ENTOOLKIT is a Phython Wrapper for EPANET Programmer's Toolkit
+"""ENTOOLKIT is a Phython Wrapper for EPANET Programmer's Toolkit
+
 https://www.epa.gov/water-research/epanet
 """
+
 import ctypes
 import os
 import sys
@@ -200,7 +201,7 @@ def ENgetlinktype(index):
     Arguments
     ---------
         index: link index
-    
+
         Link type codes:
         EN_CVPIPE Pipe with Check Valve
         EN_PIPE   Pipe
@@ -539,7 +540,7 @@ def ENsetlinkvalue(index, paramcode, value):
         index:  link index
         paramcode: parameter code
         value: parameter value
-    
+
         Link parameter codes:
         EN_DIAMETER     Diameter
         EN_LENGTH       Length
@@ -631,7 +632,7 @@ def  ENsettimeparam(paramcode, timevalue):
     ---------
         paramcode: time parameter code
         timevalue: value of time parameter in seconds/statistic type
-        
+
         Time parameter codes:
         EN_DURATION
         EN_HYDSTEP
@@ -643,7 +644,7 @@ def  ENsettimeparam(paramcode, timevalue):
         EN_RULESTEP
         EN_STATISTIC
         EN_PERIODS
-        
+
         Statistic type constants:
         EN_AVERAGE  averaged
         EN_MINIMUM  minimums
@@ -934,7 +935,7 @@ def ENsetstatusreport(statuslevel):
 def ENgeterror(errcode):
     """Return the text of the message associated with a particular error or
     warning code.
-    
+
     Arguments
     ---------
     errcode: error or warning code
@@ -1086,4 +1087,3 @@ EN_INITFLOW      = 10     # Re-initialize flow flag
 EN_NO_REPORT     = 0      # no status reporting
 EN_NORMAL_REPORT = 1      # normal reporting
 EN_FULL_REPORT   = 2      # full status reporting
-
