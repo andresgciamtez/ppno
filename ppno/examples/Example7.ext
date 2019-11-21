@@ -1,0 +1,93 @@
+[TITLE]
+Hanoi example by Fujiwara and Khang, Water Resources Research, 1990
+
+[INP]
+;Epanet inp file
+./examples/HAN.inp
+
+[OPTIONS]
+
+Algorithm NSGA2	; GD (Gradient Descent), DE (Differential Evolution), DA (Dual Annaeling) or NSGA2
+Polish YES      ; Polish will make a slight final improvement, YES/NO
+
+[PIPES]
+;ID     series
+1    PVC
+2    PVC
+3    PVC
+4    PVC
+5    PVC
+6    PVC
+7    PVC
+8    PVC
+9    PVC
+10    PVC
+11    PVC
+12    PVC
+13    PVC
+14    PVC
+15    PVC
+16    PVC
+17    PVC
+18    PVC
+19    PVC
+20    PVC
+21    PVC
+22    PVC
+23    PVC
+24    PVC
+25    PVC
+26    PVC
+27    PVC
+28    PVC
+29    PVC
+30    PVC
+31    PVC
+32    PVC
+33    PVC
+34    PVC
+
+[PRESSURES]
+;ID required_pressure
+2    10.0
+3    10.0
+4    10.0
+5    10.0
+6    10.0
+7    10.0
+8    10.0
+9    10.0
+10    10.0
+11    10.0
+12    10.0
+13    10.0
+14    10.0
+15    10.0
+16    10.0
+17    10.0
+18    10.0
+19    10.0
+20    10.0
+21    10.0
+22    10.0
+23    10.0
+24    10.0
+25    10.0
+26    10.0
+27    10.0
+28    10.0
+29    10.0
+30    10.0
+31    10.0
+32    10.0
+
+[CATALOG]
+;  series  diameter    roughness    price
+PVC     289.9        130.0    45.73
+PVC     386.6        130.0    70.40
+PVC     483.2        130.0    98.39
+PVC     579.9        130.0   129.33
+PVC     724.8        130.0   180.75
+PVC     966.4        130.0   278.28
+
+[END]

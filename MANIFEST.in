@@ -1,6 +1,6 @@
 include README.md
 include LICENSE
-include epanet/Darwin/*
-include epanet/Linux/*
-include epanet/Windows/*
-include examples/*
+include ppno/epanet/Darwin/*
+include ppno/epanet/Linux/*
+include ppno/epanet/Windows/*
+include ppno/examples/*
