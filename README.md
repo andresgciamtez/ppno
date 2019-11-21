@@ -3,15 +3,20 @@
 Licensed under the Apache License 2.0. http://www.apache.org/licenses/
 
 # DEPENDENCIES
-Requires:
-SciPy v1.2 (www.scipy.org/)
-PYGMO
+Requires (specified in setup.py):
+- numpy
+- SciPy
+- PyGMO
 
 # PURPOSE
 The program optimizes the pipe diameters of a pressure pipes network defined by an Epanet2 model. The result is the selection of the necessary tubes to meet the minimum pressure requirements in the specified nodes of the network.
 
 # RUN
-Type: 'python ppno.py problem.ext' in the command prompt; where 'problem.ext' is the data problem definition file.
+Type: 
+```
+> python ppno.py problem.ext
+```
+in the command prompt; where 'problem.ext' is the data problem definition file.
 
 # PROBLEM DEFINITION
 The file input have a similar structure to an Epanet inp file, it must have extension ext. The sections are indicated by 6 section-headed labels (“[]”). These are: TITLE, INP, OPTIONS, PIPES, PRESSURES and CATALOG. The file ends with the closing line [END]. Apart from the closing line, it is not necessary that the sections have a predetermined order.
