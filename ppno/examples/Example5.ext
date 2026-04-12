@@ -6,7 +6,7 @@ Balerma Irrigation Network. Almería (Spain)
 ./examples/BIN.inp
 
 [OPTIONS]
-Algorithm GD ; GD (Gradient Descent), DE (Differential Evolution) or DA (Dual Annaeling)
+Algorithm UH ; GD (Gradient Descent), DE (Differential Evolution) or DA (Dual Annaeling)
 Polish NO    ; Polish will make a slight final improvement, YES/NO
 
 [PIPES]

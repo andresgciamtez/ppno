@@ -7,7 +7,7 @@ Simulating stretches out of service by adding controls.
 ./examples/CNT.inp
 
 [OPTIONS]
-Algorithm GD ; GD (Gradient Descent), DE (Differential Evolution) or DA (Dual Annaeling)
+Algorithm UH ; UH (Unit Headloss Heuristic), DE (Differential Evolution) or DA (Dual Annealing)
 Polish YES   ; Polish will make a slight final improvement, YES/NO
 
 [PIPES]

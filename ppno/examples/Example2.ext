@@ -7,7 +7,7 @@ Hanoi example by Fujiwara and Khang, Water Resources Research, 1990
 
 [OPTIONS]
 
-Algorithm DE    ; GD (Gradient Descent), DE (Differential Evolution) or DA (Dual Annaeling)
+Algorithm DE    ; UH (Unit Headloss Heuristic), DE (Differential Evolution) or DA (Dual Annealing)
 Polish YES      ; Polish will make a slight final improvement. YES/NO
 
 [PIPES]

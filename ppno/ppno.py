@@ -1,470 +1,371 @@
-﻿# -*- coding: utf-8 -*-
+"""PRESSURIZED PIPE NETWORK OPTIMIZER.
 
-"""PRESSURIZED PIPE NETWORK OPTIMIZER
-
-https://github.com/andresgciamtez/ppno (ppnoptimizer@gmail.com)
-Licensed under the Apache License 2.0. http://www.apache.org/licenses/
+A modern Python tool for optimizing pipe network diameters using various
+algorithms (Unit Headloss Heuristic, Differential Evolution, Dual Annealing, NSGA-II).
 """
 
 import sys
+import logging
 from time import perf_counter, localtime, strftime
+from pathlib import Path
+from typing import Dict, List, Tuple, Optional, Union, Any
+
 import numpy as np
 import toolkit as et
-import htxt as ht
+import section_parser as sp
 
-# DECLARATIONS
-A_GD = 0
-A_DE = 1
-A_DA = 2
-A_NSGA2 = 3
-PENALTY = 1e24
+# Logger configuration
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+logger = logging.getLogger(__name__)
 
-class Optimization():
-    '''Base class for a presurized pipe network optimization.
+# Constants
+ALGORITHM_UH = 0
+ALGORITHM_DE = 1
+ALGORITHM_DA = 2
+ALGORITHM_NSGA2 = 3
+PENALTY_VALUE = 1e24
 
-    problemfn: str, definition problem file name (.ext)
-    '''
-    def __init__(self, problemfn):
 
-        # READ PROBLEM FILE NAME
-        self.problemfn = problemfn
-        myht = ht.Htxtf(problemfn)
-        sections = myht.read()
+class Optimization:
+    """Core class for pipe network optimization.
 
-        # READ EPANET MODEL INP FILE
-        self.inpfn = sections['INP'][0]
+    Coordinates the hydraulic simulation and the optimization algorithms to
+    find the best pipe diameters from a given catalog.
 
-        # OPEN EPANET MODEL AND HYDRAULIC MODEL
-        print('Data problem file:', self.problemfn)
-        et.ENopen(self.inpfn, self.inpfn[:-4]+'.rpt')
+    Attributes:
+        problem_file (Path): Path to the .ext problem definition file.
+        inp_file (Path): Path to the original EPANET .inp file.
+        rpt_file (Path): Path to the generated EPANET .rpt file.
+        algorithm (int): Chosen optimization algorithm ID.
+        polish (bool): Whether to run a final refinement step.
+        pipes (np.ndarray): Array of pipes to be sized.
+        nodes (np.ndarray): Array of nodes to check for pressure requirements.
+        catalog (Dict[str, np.ndarray]): Available pipe series and their properties.
+        dimension (int): Number of variable pipes.
+        lbound (np.ndarray): Lower bounds for variable indexes.
+        ubound (np.ndarray): Upper bounds for variable indexes.
+    """
+
+    def __init__(self, problem_file: Union[str, Path]):
+        """Initializes the optimization problem.
+
+        Args:
+            problem_file: Path to the .ext file containing problem data.
+
+        Raises:
+            FileNotFoundError: If the problem or input files are missing.
+            ValueError: If mandatory sections are missing in the problem file.
+        """
+        self.problem_file = Path(problem_file)
+        if not self.problem_file.exists():
+            raise FileNotFoundError(f"Problem file not found: {self.problem_file}")
+
+        parser = sp.SectionParser(self.problem_file)
+        sections = parser.read()
+
+        if 'INP' not in sections or not sections['INP']:
+             raise ValueError("The [INP] section is missing or empty in the .ext file.")
+             
+        self.inp_file = Path(sections['INP'][0])
+        self.rpt_file = self.inp_file.with_suffix('.rpt')
+
+        logger.info(f"Loading optimization problem: {self.problem_file}")
+        et.ENopen(str(self.inp_file), str(self.rpt_file))
         et.ENopenH()
-        print('-'*80)
-        print('DATA')
-        print('Network: %s' %(self.inpfn))
+        
+        logger.info("-" * 80)
+        logger.info(f"NETWORK DATA: {self.inp_file}")
 
-        # READ OPTIONS
-        msg = 'The algorithm selected is: '
-        for line in sections['OPTIONS']:
-            key, value = myht.line_to_tuple(line)
-            if key.upper() == 'ALGORITHM':
-                if value == 'GD':
-                    self.algorithm = A_GD
-                    msg += 'Gradient Descent.'
-                if value == 'DE':
-                    self.algorithm = A_DE
-                    msg += 'Differential Evolution.'
-                if value == 'DA':
-                    self.algorithm = A_DA
-                    msg += 'Dual Annaeling.'
-                if value == 'NSGA2':
-                    self.algorithm = A_NSGA2
-                    msg += 'NSGA-II.'
+        self._load_options(sections.get('OPTIONS', []), parser)
+        self._load_pipes(sections.get('PIPES', []), parser)
+        self._load_pressures(sections.get('PRESSURES', []), parser)
+        self._load_catalog(sections.get('CATALOG', []), parser)
 
-            elif key.upper() == 'POLISH':
-                if value.upper() in ['YES', 'Y']:
-                    self.polish = True
-                    msg += ' A final polish was selected.'
-                else:
-                    self.polish = False
-                    msg += ' A final polish was not selected.'
-
-        print(msg)
-
-        # READ PIPES
-        # pipes: numpy array of labeled tuples ('ix','id','length','series'), where
-        # ix: int, epanet pipe index
-        # id: str, epanet pipe ID
-        # length: float, epaneht pipe lenghth
-        # series: str, pipe series in catalog
-        dt = np.dtype([('ix', 'i4'), ('id', 'U16'), ('length', 'f4'), ('series', 'U16')])
-        tmp = []
-        for line in sections['PIPES']:
-            ide, series = myht.line_to_tuple(line)
-            ix = et.ENgetlinkindex(ide)
-            l = et.ENgetlinkvalue(ix, et.EN_LENGTH)
-            tmp.append((ix, ide, l, series))
-        self.pipes = np.array(tmp, dt)
-        self.bounds = None
-        print('%i pipe/s to size was/were loaded.' %(len(self.pipes)))
-
-        # READ PRESSURES
-        # nodes: numpy array of labeled tuples ('ix','id','pressure'), where
-        # ix: int, epanet node index
-        # id: str, epanet node ID
-        # pressure: float, min pressure required
-        dt = np.dtype([('ix', 'i4'), ('id', 'U16'), ('pressure', 'f4')])
-        tmp = []
-        for line in sections['PRESSURES']:
-            ide, p = myht.line_to_tuple(line)
-            ix = (et.ENgetnodeindex(ide))
-            tmp.append((ix, ide, p))
-        self.nodes = np.array(tmp, dtype=dt)
-        print('%i node/s to check was/were loaded.' %(len(self.nodes)))
-
-        # READ CATALOG
-        dt = np.dtype([('diameter', 'f4'), ('roughness', 'f4'), ('price', 'f4')])
-        self.catalog = {}
-        tmp = set()
-        for pipe in np.nditer(self.pipes):
-            tmp.add(str(pipe['series']))
-        print('%i series/s was/were required.'%(len(tmp)), end='')
-        for seriesname in tmp:
-            self.catalog[seriesname] = []
-        for line in sections['CATALOG']:
-            sn, d, r, p = myht.line_to_tuple(line)
-            if sn in tmp:
-                self.catalog[sn].append((d, r, p))
-        # READ SERIES
-        # catalog: dictionary of series {'series' : series}, where
-        # series: numpy array of labeled numpy tuples ('diameter','roughness','price'),
-        # where
-        # diameter: float, pipe diameter
-        # roughness: float, pipe roughness
-        # price: float, pipe price
-        for series in self.catalog:
-            tmp = self.catalog[series].copy()
-            self.catalog[series] = np.array(tmp, dtype=dt)
-            self.catalog[series].sort()
-        print(' %i series/s was/were loaded.' %(len(self.catalog)))
-
-        # DEFINE VARIABLE, DIMENSION AND BOUNDS
         self.dimension = len(self.pipes)
-        self._x = np.zeros(self.dimension, dtype=np.int)
-        tmp = []
-        for pipe in self.pipes:
-            tmp.append(len(self.catalog[pipe['series']])-1)
-        self.lbound = np.zeros(self.dimension, dtype=np.int)
-        self.ubound = np.array(tmp, dtype=np.int)
-        print('-'*80)
+        self._current_x = np.zeros(self.dimension, dtype=np.int32)
+        
+        self.lbound = np.zeros(self.dimension, dtype=np.int32)
+        self.ubound = np.array([len(self.catalog[str(p['series'])]) - 1 for p in self.pipes], dtype=np.int32)
+        logger.info("-" * 80)
 
-    def set_x(self, x):
-        '''Set x updating the hydraulic model.
+    def _load_options(self, options_lines: List[str], parser: sp.SectionParser) -> None:
+        """Parses the OPTIONS section."""
+        self.algorithm = ALGORITHM_UH
+        self.polish = False
+        alg_map = {'UH': ALGORITHM_UH, 'DE': ALGORITHM_DE, 'DA': ALGORITHM_DA, 'NSGA2': ALGORITHM_NSGA2}
+        
+        msg = "Algorithm: "
+        for line in options_lines:
+            key, value = parser.line_to_tuple(line)
+            if key.upper() == 'ALGORITHM':
+                self.algorithm = alg_map.get(value.upper(), ALGORITHM_UH)
+                msg += value
+            elif key.upper() == 'POLISH':
+                self.polish = value.upper() in ['YES', 'Y']
+                msg += " (with manual polish)" if self.polish else ""
+        
+        logger.info(msg)
 
-        x: numpy array of integers containing the size of the pipes, where
-            size: int, index of series in catalog.
-        '''
-        self._x = x
-        self._update()
+    def _load_pipes(self, pipe_lines: List[str], parser: sp.SectionParser) -> None:
+        """Parses the PIPES section."""
+        dt = np.dtype([('link_idx', 'i4'), ('id', 'U16'), ('length', 'f4'), ('series', 'U16')])
+        data = []
+        for line in pipe_lines:
+            pipe_id, series_name = parser.line_to_tuple(line)
+            link_idx = et.ENgetlinkindex(pipe_id)
+            length = et.ENgetlinkvalue(link_idx, et.EN_LENGTH)
+            data.append((link_idx, pipe_id, length, series_name))
+        
+        self.pipes = np.array(data, dt)
+        logger.info(f"Loaded {len(self.pipes)} pipes for sizing.")
 
-    def get_x(self):
-        '''Return x
-        '''
-        return self._x
+    def _load_pressures(self, pressure_lines: List[str], parser: sp.SectionParser) -> None:
+        """Parses the PRESSURES section."""
+        dt = np.dtype([('node_idx', 'i4'), ('id', 'U16'), ('min_pressure', 'f4')])
+        data = []
+        for line in pressure_lines:
+            node_id, min_p = parser.line_to_tuple(line)
+            node_idx = et.ENgetnodeindex(node_id)
+            data.append((node_idx, node_id, float(min_p)))
+        
+        self.nodes = np.array(data, dtype=dt)
+        logger.info(f"Loaded {len(self.nodes)} pressure constraints.")
 
-    def _update(self):
-        '''Update pipe diameter and roughness in the epanet model.'''
-        for index, pipe in np.ndenumerate(self.pipes):
-            ix = pipe['ix']
-            series = self.catalog[pipe['series']]
-            size = int(self._x[index])
-            d = series[size]['diameter']
-            r = series[size]['roughness']
-            et.ENsetlinkvalue(ix, et.EN_DIAMETER, d)
-            et.ENsetlinkvalue(ix, et.EN_ROUGHNESS, r)
+    def _load_catalog(self, catalog_lines: List[str], parser: sp.SectionParser) -> None:
+        """Parses the CATALOG section."""
+        dt = np.dtype([('diameter', 'f4'), ('roughness', 'f4'), ('price', 'f4')])
+        required_series = set(str(p['series']) for p in self.pipes)
+        
+        raw_data: Dict[str, List[Tuple[float, float, float]]] = {s: [] for s in required_series}
+        for line in catalog_lines:
+            sn, d, r, p = parser.line_to_tuple(line)
+            if sn in required_series:
+                raw_data[sn].append((float(d), float(r), float(p)))
+        
+        self.catalog = {
+            name: np.sort(np.array(data, dtype=dt), order='diameter')
+            for name, data in raw_data.items()
+        }
+        logger.info(f"Loaded {len(self.catalog)} pipe series catalogs.")
 
-    def check(self, mode='TF'):
-        '''Run a check of the pressures in the epanet model.
+    def set_x(self, x: np.ndarray) -> None:
+        """Updates the hydraulic model with the new diameter indexes."""
+        self._current_x = x.astype(np.int32)
+        for i, pipe in enumerate(self.pipes):
+            link_idx = int(pipe['link_idx'])
+            series = self.catalog[str(pipe['series'])]
+            size_idx = int(self._current_x[i])
+            
+            et.ENsetlinkvalue(link_idx, et.EN_DIAMETER, float(series[size_idx]['diameter']))
+            et.ENsetlinkvalue(link_idx, et.EN_ROUGHNESS, float(series[size_idx]['roughness']))
 
-        mode: str, can be: 'TF', 'GD', 'PD'
-        Return
-        ------
-        Accordig to mode, returns:
-            'TF', status: boolean, calculated pressures are not lower than required
-            'GD', (status,headlosses): tuple, where
-                headlosses: numpy descend ordered array by headloss pipe index
-                where index: int, is the index of pipe in pipes (not epanet ix).
-            'PD', deficits: numpy array. Nodal pressure deficits, where
-                deficit: float, = required presure - calculated pressure;
-                array index corresponds with node in nodes (not epanet ix).
-        '''
-        # DEFINE NUMPY ARRAYS
-        if mode == 'PD':
-            deficits = np.array([np.inf for node in self.nodes], dtype=np.float32)
-        if mode == 'GD':
-            dt = np.dtype([('index', 'i4'), ('hl', 'f4')])
-            pipehls = np.array([(i, 0.0) for i in range(len(self.pipes))], dtype=dt)
+    def get_x(self) -> np.ndarray:
+        """Returns the current vector of diameter indexes."""
+        return self._current_x
 
-        # SOLVE HYDRAULIC MODEL
-        status = True
+    def check(self, mode: str = 'TF') -> Union[bool, Tuple[bool, np.ndarray], np.ndarray]:
+        """Checks pressure constraints across all time steps.
+
+        Args:
+            mode: 'TF' for boolean status, 'UH' for status and sorted headlosses,
+                  'PD' for nodal pressure deficits.
+
+        Returns:
+            Depending on mode: bool, (bool, np.ndarray), or np.ndarray.
+        """
+        deficits = np.full(len(self.nodes), np.inf, dtype=np.float32) if mode == 'PD' else None
+        max_hls = np.zeros(len(self.pipes), dtype=np.float32) if mode == 'UH' else None
+        overall_status = True
+
         et.ENinitH(0)
         while True:
-            # RUN A STEP
             et.ENrunH()
-            # CHECK PRESSURES IN NODES
-            for index, node in  np.ndenumerate(self.nodes):
-                ix = int(node['ix'])
-                cp = et.ENgetnodevalue(ix, et.EN_PRESSURE)
-                rp = node['pressure']
-                nodaldeficit = rp - cp
-                if nodaldeficit > 0:
-                    status = False
-                    # NOT NECCESSARY RETURN HEADLOSS OR PRESSURE SO EXIT
+            
+            # Check nodal pressures
+            for i, node in enumerate(self.nodes):
+                calculated_p = et.ENgetnodevalue(int(node['node_idx']), et.EN_PRESSURE)
+                required_p = float(node['min_pressure'])
+                deficit = required_p - calculated_p
+                
+                if deficit > 0:
+                    overall_status = False
                     if mode == 'TF':
-                        return status
+                        return False
 
-                # UPDATE DEFICIT ARRAY
-                if mode == 'PD':
-                    if deficits[index] > nodaldeficit:
-                        deficits[index] = nodaldeficit
+                if mode == 'PD' and deficits is not None:
+                    if deficits[i] > deficit:
+                        deficits[i] = deficit
 
-            # CALCULATE MAXIMUM UNITARY HEADLOSS ARRAY
-            if mode == 'GD':
-                for pipe in np.nditer(pipehls):
-                    index = pipe['index']
-                    ix = int(self.pipes[pipe['index']]['ix'])
-                    hl = et.ENgetlinkvalue(ix, et.EN_HEADLOSS)
-                    if pipehls[index]['hl'] < hl:
-                        pipehls[index]['hl'] = hl
+            # Check link headlosses
+            if mode == 'UH' and max_hls is not None:
+                for i in range(len(self.pipes)):
+                    hl = et.ENgetlinkvalue(int(self.pipes[i]['link_idx']), et.EN_HEADLOSS)
+                    if max_hls[i] < hl:
+                        max_hls[i] = hl
 
-            # END OF SIMULATON
             if et.ENnextH() == 0:
                 break
 
-        # SORT HEADLOSS PIPES
-        if mode == 'GD':
-            tmp = np.sort(pipehls, order='hl')[::-1]
-            headlosses = np.array(tmp[:]['index'], dtype=np.int)
-
-        # RESULT
         if mode == 'TF':
-            return status
-        if mode == 'GD':
-            return (status, headlosses)
+            return overall_status
+        if mode == 'UH':
+            sorted_indices = np.argsort(max_hls)[::-1]
+            return overall_status, sorted_indices
         if mode == 'PD':
-            return deficits
+            return deficits or np.array([])
+            
+        return overall_status
 
-    def save_file(self, fn):
-        '''Save inp file updating d and roughness.'''
-
-        # UPDATE AND SAVE MODEL
-        et.ENsaveinpfile(fn)
-
-    def get_cost(self):
-        '''Return the network cost. Sum of length x price for each pipe.'''
-        acumulate = 0.0
+    def get_cost(self) -> float:
+        """Calculates total network cost based on current sizing."""
+        total = 0.0
         x = self.get_x()
-        for index, pipe in np.ndenumerate(self.pipes):
-            l = pipe['length']
-            p = self.catalog[pipe['series']][x[index]]['price']
-            acumulate += l*p
-        return acumulate
+        for i, pipe in enumerate(self.pipes):
+            total += float(pipe['length']) * float(self.catalog[str(pipe['series'])][int(x[i])]['price'])
+        return total
 
-    # SOLVER
-    def solve(self):
-        '''Run the optimization.
-
-        Return
-        ------
-        The best solution found , where
-            solution: numpy int array, sizes of pipes, according to series.
-        If no solution is found return None.
-        The optimized epanet model is saved in a new file.
-        '''
-        startime = perf_counter()
+    def solve(self) -> Optional[np.ndarray]:
+        """Executes the optimization process."""
+        start_time = perf_counter()
         solution = None
-        reducted = False
-        print('SOLVING')
-        print('The solver started at: ' + strftime("%H:%M:%S", localtime()))
+        
+        logger.info(f"Optimization started at: {strftime('%H:%M:%S', localtime())}")
 
-        # SELECT ALGORITHM
-        if self.algorithm == A_GD:
-            # GRADIENT DESCENT ALGORITHM
-            print('*** GRADIENT DESCENT ALGORITHM ***')
+        if self.algorithm == ALGORITHM_UH:
+            solution = self._solve_uh()
+        elif self.algorithm in [ALGORITHM_DE, ALGORITHM_DA]:
+            solution = self._solve_scipy()
+        elif self.algorithm == ALGORITHM_NSGA2:
+            from gao import nsga2
+            _, sol_x = nsga2(self)
+            solution = np.array(sol_x, dtype=np.int32) if sol_x is not None else None
 
-            # SET TO 0 AND INITIAL PRESSURE CHECKING
-            self.set_x(np.zeros(self.dimension, dtype=np.int))
+        if self.polish and solution is not None:
+            solution = self._apply_polish(solution)
 
-            while True:
-                # CHECK PRESSURES
-                status, headlosses = self.check(mode='GD')
-                if status:
-                    # PRESSURES OK END OF LOOP
-                    break
-
-                # INCREASE DIAMETER
-                for index in np.nditer(headlosses):
-                    x = self.get_x()
-                    if x[index] < self.ubound[index]:
-                        x[index] += 1
-                        self.set_x(x)
-                        break
-
-            if status:
-                solution = self.get_x().copy()
-
-        if self.algorithm in [A_DE, A_DA]:
-            # DIFFEERENTIAL EVOLUTION / DUAL ANNEALING ALGORITHM
-            # SET BOUNDS
-            tmp = list(zip(self.lbound, self.ubound))
-            self.bounds = np.array(tmp, dtype=np.int)
-            def objetive(x):
-                self.set_x(np.array([round(i) for i in x[:]], np.int))
-                if self.check(mode='TF'):
-                    return self.get_cost()
-                return PENALTY
-
-            # SOLVE
-            if self.algorithm == A_DE:
-                # DIFFEERENTIAL EVOLUTION
-                from scipy.optimize import differential_evolution
-                print('*** DIFFERENTIAL EVOLUTION ALGORITHM ***')
-                result = differential_evolution(objetive, self.bounds)
-            else:
-                # DUAL ANNEALING ALGORITHM
-                from scipy.optimize import dual_annealing
-                print('*** DUAL ANNEALING ALGORITHM ***')
-                result = dual_annealing(objetive, self.bounds)
-
-            # CHECK
-            tmp = [round(i) for i in result.x[:]]
-            tmp = np.array(tmp, dtype=np.int)
-            self.set_x(tmp)
-            if self.check(mode='TF'):
-                solution = self.get_x().copy()
-            else:
-                solution = None
-
-        if self.algorithm == A_NSGA2:
-            # NSGA-II
-            from gaoptimizer import nsga2
-            tmp = nsga2(self)[1]
-            if not isinstance(tmp, type(None)):
-                solution = np.array(tmp, np.int)
-
-        if self.polish and not isinstance(solution, type(None)):
-            # POLISH ALGORITHM
-            maxredxset = [0.0, []]
-            def search_reduc(savings, redxset):
-                '''Search possible reduction of pipe diameters.
-
-                redxset: list of ordered by index pipe-set which diameter can
-                    be reduced 1-step according to pipe series.
-                savings: reduction of cost reached applying redxset
-                If a pipe can be reduced, it is added, starting a recursively
-                precces that stop when no pipe can be reduced, then the reduction
-                cost is compared whith previous max reduccion, updating it.
-
-                Return
-                ------
-                Update maxredset
-                '''
-                changes = False
-                # SET TO SOL - REDUCTIONS
-                newx = solution.copy()
-
-                if redxset:
-                    start = redxset[-1]
-                else:
-                    start = 0
-                for i in redxset[:]:
-                    newx[i] -= 1
-                # SEARCH FOR A POSSIBLE REDUCIBLE PIPE
-                for i in range(start, len(self._x)):
-                    if  newx[i] > 0:
-                        # REDUCE DIAMETER
-                        newx[i] -= 1
-                        # CHECK PRESSURES
-                        self.set_x(newx)
-                        if self.check(mode='TF'):
-                            # ACEPPT CHANGES
-                            changes = True
-                            series = self.catalog[self.pipes[i]['series']]
-                            c1 = series[newx[i]+1]['price']
-                            c2 = series[newx[i]]['price']
-                            l = self.pipes[i]['length']
-                            newsavings = savings+(c1-c2)*l
-                            newredxset = redxset.copy()
-                            newredxset.append(i)
-                            search_reduc(newsavings, newredxset)
-                        else:
-                            # UNDO
-                            newx[i] += 1
-                if not changes:
-                    # CHECK AND UPDATE MAX REDUCTION SET
-                    if savings > maxredxset[0]:
-                        maxredxset[0] = savings
-                        maxredxset[1] = redxset
-
-            print('+++ POLISH ALGORITHM +++')
-            search_reduc(0.0, [])
-            print('The maximum reduction cost is: %.2f'%(maxredxset[0]))
-            if maxredxset[0] > 0:
-                reducted = True
-                for i in maxredxset[1][:]:
-                    solution[i] -= 1
-
-        # SOLUTION
-        if not isinstance(solution, type(None)):
-            print('Solving was successful.')
-            self.set_x(solution)
-            cost = self.get_cost()
-            print('Network cost is: %.2f'%(cost))
-            solvedfn = self.inpfn[:-4]+'_Solved_'
-            if self.algorithm == A_GD:
-                solvedfn += 'GD'
-            elif self.algorithm == A_DE:
-                solvedfn += 'DE'
-            elif self.algorithm == A_DA:
-                solvedfn += 'DA'
-            elif self.algorithm == A_NSGA2:
-                solvedfn += 'NSGA2'
-            if reducted:
-                solvedfn += '+Polish.inp'
-            else:
-                solvedfn += '.inp'
-            self.save_file(solvedfn)
-            print('Sized network saved in: %s'%(solvedfn))
+        if solution is not None:
+            self._handle_success(solution)
         else:
-            print('No solution found.')
+            logger.error("No valid solution found.")
 
-        # DURATION
-        print('Finished at:', strftime("%H:%M:%S"), end='')
-        print('. Duration = ', perf_counter()-startime)
-        print('-'*80)
-
+        logger.info(f"Duration: {perf_counter() - start_time:.2f}s")
         return solution
 
-    def pretty_print(self, x):
-        '''Print the solution in a readable format.'''
-        # PRINT SOLUTION
-        cost = 0
-        print('*** SOLUTION ***')
-        print('-'*80)
-        m = '{:>16} {:>16} {:>8} {:>9} {:>6} {:>6} {:>10}'
-        m = m.format('Epanet Pipe ID', 'series name', 'diameter', 'roughness',\
-                     'length', 'price', 'amount')
-        print(m)
-        print('-'*80)
-        for index, pipe in enumerate(self.pipes):
-            ide = pipe['id']
-            series = pipe['series']
-            size = int(x[index])
-            d = self.catalog[series][size]['diameter']
-            r = self.catalog[series][size]['roughness']
-            p = self.catalog[series][size]['price']
-            l = pipe['length']
-            a = p * l
-            cost += a
-            m = '{:>16} {:>16} {:8.1f} {:9.4f} {:6.1f} {:6.2f} {:10.2f}'
-            m = m.format(ide, series, d, r, l, p, a)
-            print(m)
-        print('-'*80)
-        print('Total cost: {:10.2f}'.format(cost))
-        print('='*80)
+    def _solve_uh(self) -> Optional[np.ndarray]:
+        """Unit Headloss Heuristic logic."""
+        logger.info("*** UNIT HEADLOSS HEURISTIC ***")
+        self.set_x(np.zeros(self.dimension, dtype=np.int32))
+        while True:
+            status, sorted_hls = self.check(mode='UH')
+            if status:
+                return self.get_x().copy()
+            
+            expanded = False
+            for idx in sorted_hls:
+                x = self.get_x().copy()
+                if x[idx] < self.ubound[idx]:
+                    x[idx] += 1
+                    self.set_x(x)
+                    expanded = True
+                    break
+            if not expanded:
+                return None
 
-def main(argv):
-    #RUN AN OPTIMIZATION
-    print('*'*80)
-    print(__doc__)
-    print('*'*80)
+    def _solve_scipy(self) -> Optional[np.ndarray]:
+        """SciPy optimization wrapper."""
+        bounds = list(zip(self.lbound, self.ubound))
+        def objective(x_params):
+            self.set_x(np.round(x_params).astype(np.int32))
+            return self.get_cost() if self.check(mode='TF') else PENALTY_VALUE
 
-    # LOAD PROBLEM
-    myopt = Optimization(argv[1])
-    # SOLVE
-    solution = myopt.solve()
-    # PRINT SOLUTION
-    if not isinstance(solution, type(None)):
-        myopt.pretty_print(solution)
+        if self.algorithm == ALGORITHM_DE:
+            from scipy.optimize import differential_evolution
+            logger.info("*** DIFFERENTIAL EVOLUTION ***")
+            result = differential_evolution(objective, bounds)
+        else:
+            from scipy.optimize import dual_annealing
+            logger.info("*** DUAL ANNEALING ***")
+            result = dual_annealing(objective, bounds)
+
+        final_x = np.round(result.x).astype(np.int32)
+        self.set_x(final_x)
+        return final_x if self.check(mode='TF') else None
+
+    def _apply_polish(self, solution: np.ndarray) -> np.ndarray:
+        """Manual polish to reduce diameters of non-critical pipes."""
+        logger.info("+++ APPLYING POLISH REFINEMENT +++")
+        refined = solution.copy()
+        # Simplified greedy approach: try to reduce each pipe price-wise
+        indices_by_saving = sorted(range(self.dimension), 
+                                   key=lambda i: float(self.catalog[str(self.pipes[i]['series'])][int(solution[i])]['price']),
+                                   reverse=True)
+        
+        for idx in indices_by_saving:
+            while refined[idx] > 0:
+                refined[idx] -= 1
+                self.set_x(refined)
+                if not self.check(mode='TF'):
+                    refined[idx] += 1 # Undo
+                    break
+                logger.debug(f"Reduced pipe {self.pipes[idx]['id']}")
+        
+        return refined
+
+    def _handle_success(self, solution: np.ndarray) -> None:
+        """Saves and prints results for a successful run."""
+        self.set_x(solution)
+        cost = self.get_cost()
+        logger.info(f"Success! Final Network Cost: {cost:.2f}")
+        
+        alg_name = {ALGORITHM_UH: 'UH', ALGORITHM_DE: 'DE', ALGORITHM_DA: 'DA', ALGORITHM_NSGA2: 'NSGA2'}[self.algorithm]
+        out_path = self.inp_file.parent / (self.inp_file.stem + f"_Solved_{alg_name}.inp")
+        et.ENsaveinpfile(str(out_path))
+        logger.info(f"Optimized model saved to: {out_path}")
+
+    def pretty_print(self, x: np.ndarray) -> None:
+        """Displays the solution in a formatted table."""
+        logger.info("\n" + "*" * 20 + " FINAL SOLUTION " + "*" * 20)
+        logger.info(f"{'Pipe ID':>16} {'Series':>12} {'Diam':>8} {'Rough':>8} {'Len':>8} {'Price':>8} {'Total':>10}")
+        logger.info("-" * 80)
+        
+        for i, pipe in enumerate(self.pipes):
+            size = int(x[i])
+            cat = self.catalog[str(pipe['series'])][size]
+            d, r, p = float(cat['diameter']), float(cat['roughness']), float(cat['price'])
+            l = float(pipe['length'])
+            logger.info(f"{str(pipe['id']):>16} {str(pipe['series']):>12} {d:8.1f} {r:8.4f} {l:8.1f} {p:8.2f} {l*p:10.2f}")
+            
+        logger.info("-" * 80)
+        logger.info(f"TOTAL NETWORK COST: {self.get_cost():.2f}")
+        logger.info("*" * 56 + "\n")
+
+    def close(self) -> None:
+        """Safely closes the EPANET toolkit."""
+        try:
+            et.ENcloseH()
+            et.ENclose()
+        except Exception:
+            pass
+
+
+def main(argv: List[str]) -> None:
+    if len(argv) < 2:
+        logger.error("Usage: ppno <problem_file.ext>")
+        return
+
+    logger.info("=" * 80)
+    logger.info(" PRESSURIZED PIPE NETWORK OPTIMIZER ")
+    logger.info("=" * 80)
+
+    try:
+        opt = Optimization(argv[1])
+        solution = opt.solve()
+        if solution is not None:
+            opt.pretty_print(solution)
+        opt.close()
+    except Exception:
+        logger.exception("A fatal error occurred during optimization:")
+
 
 if __name__ == "__main__":
-    main(sys.argv[:])
+    main(sys.argv)

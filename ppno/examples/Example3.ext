@@ -6,7 +6,7 @@
 ./examples/NYT.inp
 
 [OPTIONS]
-Algorithm DA ; GD (Gradient Descent), DE (Differential Evolution) or DA (Dual Annaeling)
+Algorithm DA ; UH (Unit Headloss Heuristic), DE (Differential Evolution) or DA (Dual Annealing)
 Polish NO    ; Polish will make a slight final improvement, YES/NO
 
 [PIPES]
