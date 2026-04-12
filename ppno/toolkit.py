@@ -12,20 +12,28 @@ from typing import Tuple, List, Optional, Callable, Union, Any
 
 # --- Library Loading ---
 
-_OS_NAME = platform.system()
-_MACHINE = platform.machine()
+_OS_NAME = platform.system().lower()
+_MACHINE = platform.machine().lower()
 _BASE_PATH = Path(__file__).parent / "epanet"
 
-if _OS_NAME == "Windows":
-    _dll_name = "epanet2_amd64.dll" if "64" in _MACHINE else "epanet2.dll"
-    _lib_path = _BASE_PATH / "Windows" / _dll_name
+# Architecture detection (x64, x86, arm)
+if "arm" in _MACHINE or "aarch64" in _MACHINE:
+    _arch = "arm"
+elif "64" in _MACHINE:
+    _arch = "x64"
+else:
+    _arch = "x86"
+
+# Library selection based on platform
+if _OS_NAME == "windows":
+    _lib_path = _BASE_PATH / f"windows-{_arch}" / "epanet2.dll"
     # Using WinDLL for __stdcall convention on Windows
     _lib = ctypes.WinDLL(str(_lib_path))
-elif _OS_NAME == "Darwin":
-    _lib_path = _BASE_PATH / "Darwin" / "libepanet2.dylib"
+elif _OS_NAME == "darwin":
+    _lib_path = _BASE_PATH / f"darwin-{_arch}" / "libepanet.dylib"
     _lib = ctypes.CDLL(str(_lib_path))
-else:
-    _lib_path = _BASE_PATH / "Linux" / "libepanet.so"
+else: # Linux
+    _lib_path = _BASE_PATH / f"linux-{_arch}" / "libepanet.so"
     _lib = ctypes.CDLL(str(_lib_path))
 
 # --- General Constants ---
