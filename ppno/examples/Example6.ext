@@ -7,7 +7,7 @@ Balerma Irrigation Network. Almería (Spain)
 
 [OPTIONS]
 Algorithm NSGA2
-Polish NO
+Refinement NO
 
 [PIPES]
 ; ID    series

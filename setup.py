@@ -9,12 +9,12 @@ setup(
     author='Andrés García Martínez',
     author_email='ppnoptimizer@gmail.com',
     packages=find_packages(),
-    include_package_data=True,       
+    include_package_data=True,
     url='https://github.com/andresgciamtez/ppno',
     python_requires='>=3.8',
     install_requires=[
-        'numpy>=1.20.0', 
-        'scipy>=1.7.0', 
+        'numpy>=1.20.0',
+        'scipy>=1.7.0',
         'pygmo>=2.18.0'
     ],
     extras_require={

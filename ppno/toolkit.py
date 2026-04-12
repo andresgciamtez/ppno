@@ -6,9 +6,8 @@ It handles library loading for Windows, Linux, and macOS.
 
 import ctypes
 import platform
-import sys
 from pathlib import Path
-from typing import Tuple, List, Optional, Callable, Union, Any
+from typing import Tuple, List, Optional, Callable
 
 # --- Library Loading ---
 
@@ -42,6 +41,16 @@ MAX_LABEL_LEN = 15
 ERR_MAX_CHAR = 80
 
 
+# --- API Functions ---
+
+
+def ENgeterror(error_code: int) -> str:
+    """Converts a toolkit error code to a readable message string."""
+    error_msg = ctypes.create_string_buffer(ERR_MAX_CHAR)
+    _lib.ENgeterror(error_code, ctypes.byref(error_msg), ERR_MAX_CHAR)
+    return error_msg.value.decode()
+
+
 class ENtoolkitError(Exception):
     """Exception raised for errors in the EPANET Toolkit.
 
@@ -62,9 +71,7 @@ class ENtoolkitError(Exception):
         return self.message
 
 
-# --- API Functions ---
-
-def ENepanet(inp_file: str, rpt_file: str = '', bin_file: str = '', 
+def ENepanet(inp_file: str, rpt_file: str = '', bin_file: str = '',
              vfunc: Optional[Callable[[str], None]] = None) -> None:
     """Runs a complete EPANET simulation.
 
@@ -78,7 +85,7 @@ def ENepanet(inp_file: str, rpt_file: str = '', bin_file: str = '',
     if vfunc is not None:
         cfunc = ctypes.CFUNCTYPE(None, ctypes.c_char_p)
         callback = cfunc(lambda msg: vfunc(msg.decode()))
-        
+
     ierr = _lib.ENepanet(ctypes.c_char_p(inp_file.encode()),
                          ctypes.c_char_p(rpt_file.encode()),
                          ctypes.c_char_p(bin_file.encode()),
@@ -285,7 +292,7 @@ def ENsettimeparam(param_code: int, time_value: int) -> None:
         raise ENtoolkitError(ierr)
 
 
-def ENgetqualtype(qual_code_out: Any = None, trace_node_out: Any = None) -> Tuple[int, int]:
+def ENgetqualtype() -> Tuple[int, int]:
     """Gets the type of water quality analysis and trace node."""
     q_ptr = ctypes.c_int()
     t_ptr = ctypes.c_int()
@@ -476,13 +483,6 @@ def ENsetstatusreport(status_level: int) -> None:
     ierr = _lib.ENsetstatusreport(status_level)
     if ierr:
         raise ENtoolkitError(ierr)
-
-
-def ENgeterror(error_code: int) -> str:
-    """Converts a toolkit error code to a readable message string."""
-    error_msg = ctypes.create_string_buffer(ERR_MAX_CHAR)
-    _lib.ENgeterror(error_code, ctypes.byref(error_msg), ERR_MAX_CHAR)
-    return error_msg.value.decode()
 
 
 # --- EPANET Constant Definitions ---

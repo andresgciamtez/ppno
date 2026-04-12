@@ -57,13 +57,13 @@ Calculation options.
     - `DE`: **Differential Evolution**. Robust global optimization from SciPy.
     - `DA`: **Dual Annealing**. Efficient global optimization for large spaces.
     - `NSGA2`: **Non-dominated Sorting Genetic Algorithm II**. Multi-objective approach via PyGMO.
-- **Polish**: `YES` or `NO`. Enables a final greedy refinement to further reduce costs in non-critical pipes.
+- **Refinement**: `YES` or `NO`. Enables a final greedy refinement to further reduce costs in non-critical pipes.
 
 Example:
 ```ini
 [OPTIONS]
 Algorithm UH
-Polish YES
+Refinement YES
 ```
 
 ### [PIPES]
@@ -101,7 +101,7 @@ PVC  150.0    0.100     1.75
 ## RESULTS
 The optimized results are displayed in the console and a new EPANET file is generated. The filename includes a suffix based on the algorithm used: `_Solved_UH`, `_Solved_DE`, etc.
 
-If a refinement was selected, an additional `+Polish` indicator is added.
+If refinement was enabled, an additional `+Refinement` indicator is added.
 
 ---
 

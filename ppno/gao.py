@@ -55,16 +55,16 @@ class PPNOProblem:
         """
         diameter_indexes = x.astype(np.int32)
         self.optimization_instance.set_x(diameter_indexes)
-        
+
         # Objective 1: Investment Cost
         cost = float(self.optimization_instance.get_cost())
-        
+
         # Objective 2: Feasibility (Pressure Deficit)
-        # We look for the maximum deficit across all nodes. 
+        # We look for the maximum deficit across all nodes.
         # A value <= 0 means all nodes satisfy pressure requirements.
         nodal_deficits = self.optimization_instance.check(mode='PD')
         max_deficit = float(np.max(nodal_deficits))
-        
+
         return [cost, max_deficit]
 
     def get_bounds(self) -> Tuple[np.ndarray, np.ndarray]:
@@ -100,18 +100,18 @@ def nsga2(optimization_instance: Any) -> Tuple[Optional[List[float]], Optional[n
 
     start_time = perf_counter()
     prob = pg.problem(PPNOProblem(optimization_instance))
-    
+
     total_generations = 0
     trials = 0
     consecutive_no_changes = 0
-    
+
     best_cost_found: float = float('inf')
     best_valid_fitness: Optional[List[float]] = None
     best_valid_x: Optional[np.ndarray] = None
 
     # Configure NSGA-II algorithm
     algorithm = pg.algorithm(pg.nsga2(gen=GENERATIONS_PER_TRIAL))
-    
+
     # Initialize random population
     population = pg.population(prob, size=POPULATION_SIZE)
 
@@ -124,17 +124,17 @@ def nsga2(optimization_instance: Any) -> Tuple[Optional[List[float]], Optional[n
         # Search for the best valid solution in the current population (Pareto Front)
         fitness_values = population.get_f()
         solution_vectors = population.get_x()
-        
+
         # Filter valid solutions and find the one with the minimum cost
         valid_solutions = [
-            (fit, x) for fit, x in zip(fitness_values, solution_vectors) 
+            (fit, x) for fit, x in zip(fitness_values, solution_vectors)
             if fit[1] <= 0
         ]
-        
+
         if valid_solutions:
             # Get valid solution with minimum cost
             current_best_fit, current_best_x = min(valid_solutions, key=lambda sol: sol[0][0])
-            
+
             if current_best_fit[0] < best_cost_found:
                 best_cost_found = current_best_fit[0]
                 best_valid_fitness = list(current_best_fit)

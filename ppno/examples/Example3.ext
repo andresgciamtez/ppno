@@ -7,7 +7,7 @@
 
 [OPTIONS]
 Algorithm DA ; UH (Unit Headloss Heuristic), DE (Differential Evolution) or DA (Dual Annealing)
-Polish NO    ; Polish will make a slight final improvement, YES/NO
+Refinement NO    ; Refinement will make a slight final improvement, YES/NO
 
 [PIPES]
 ;ID series

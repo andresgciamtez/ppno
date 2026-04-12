@@ -37,7 +37,7 @@ class Optimization:
         inp_file (Path): Path to the original EPANET .inp file.
         rpt_file (Path): Path to the generated EPANET .rpt file.
         algorithm (int): Chosen optimization algorithm ID.
-        polish (bool): Whether to run a final refinement step.
+        refinement (bool): Whether to run a final refinement step.
         pipes (np.ndarray): Array of pipes to be sized.
         nodes (np.ndarray): Array of nodes to check for pressure requirements.
         catalog (Dict[str, np.ndarray]): Available pipe series and their properties.
@@ -64,15 +64,14 @@ class Optimization:
         sections = parser.read()
 
         if 'INP' not in sections or not sections['INP']:
-             raise ValueError("The [INP] section is missing or empty in the .ext file.")
-             
+            raise ValueError("The [INP] section is missing or empty in the .ext file.")
         self.inp_file = Path(sections['INP'][0])
         self.rpt_file = self.inp_file.with_suffix('.rpt')
 
         logger.info(f"Loading optimization problem: {self.problem_file}")
         et.ENopen(str(self.inp_file), str(self.rpt_file))
         et.ENopenH()
-        
+
         logger.info("-" * 80)
         logger.info(f"NETWORK DATA: {self.inp_file}")
 
@@ -83,7 +82,7 @@ class Optimization:
 
         self.dimension = len(self.pipes)
         self._current_x = np.zeros(self.dimension, dtype=np.int32)
-        
+
         self.lbound = np.zeros(self.dimension, dtype=np.int32)
         self.ubound = np.array([len(self.catalog[str(p['series'])]) - 1 for p in self.pipes], dtype=np.int32)
         logger.info("-" * 80)
@@ -91,19 +90,19 @@ class Optimization:
     def _load_options(self, options_lines: List[str], parser: sp.SectionParser) -> None:
         """Parses the OPTIONS section."""
         self.algorithm = ALGORITHM_UH
-        self.polish = False
+        self.refinement = False
         alg_map = {'UH': ALGORITHM_UH, 'DE': ALGORITHM_DE, 'DA': ALGORITHM_DA, 'NSGA2': ALGORITHM_NSGA2}
-        
+
         msg = "Algorithm: "
         for line in options_lines:
             key, value = parser.line_to_tuple(line)
             if key.upper() == 'ALGORITHM':
                 self.algorithm = alg_map.get(value.upper(), ALGORITHM_UH)
                 msg += value
-            elif key.upper() == 'POLISH':
-                self.polish = value.upper() in ['YES', 'Y']
-                msg += " (with manual polish)" if self.polish else ""
-        
+            elif key.upper() in ['POLISH', 'REFINEMENT', 'REFINE']:
+                self.refinement = value.upper() in ['YES', 'Y']
+                msg += " (with refinement)" if self.refinement else ""
+
         logger.info(msg)
 
     def _load_pipes(self, pipe_lines: List[str], parser: sp.SectionParser) -> None:
@@ -115,7 +114,7 @@ class Optimization:
             link_idx = et.ENgetlinkindex(pipe_id)
             length = et.ENgetlinkvalue(link_idx, et.EN_LENGTH)
             data.append((link_idx, pipe_id, length, series_name))
-        
+
         self.pipes = np.array(data, dt)
         logger.info(f"Loaded {len(self.pipes)} pipes for sizing.")
 
@@ -127,7 +126,7 @@ class Optimization:
             node_id, min_p = parser.line_to_tuple(line)
             node_idx = et.ENgetnodeindex(node_id)
             data.append((node_idx, node_id, float(min_p)))
-        
+
         self.nodes = np.array(data, dtype=dt)
         logger.info(f"Loaded {len(self.nodes)} pressure constraints.")
 
@@ -135,13 +134,13 @@ class Optimization:
         """Parses the CATALOG section."""
         dt = np.dtype([('diameter', 'f4'), ('roughness', 'f4'), ('price', 'f4')])
         required_series = set(str(p['series']) for p in self.pipes)
-        
+
         raw_data: Dict[str, List[Tuple[float, float, float]]] = {s: [] for s in required_series}
         for line in catalog_lines:
             sn, d, r, p = parser.line_to_tuple(line)
             if sn in required_series:
                 raw_data[sn].append((float(d), float(r), float(p)))
-        
+
         self.catalog = {
             name: np.sort(np.array(data, dtype=dt), order='diameter')
             for name, data in raw_data.items()
@@ -155,13 +154,13 @@ class Optimization:
             link_idx = int(pipe['link_idx'])
             series = self.catalog[str(pipe['series'])]
             size_idx = int(self._current_x[i])
-            
+
             et.ENsetlinkvalue(link_idx, et.EN_DIAMETER, float(series[size_idx]['diameter']))
             et.ENsetlinkvalue(link_idx, et.EN_ROUGHNESS, float(series[size_idx]['roughness']))
 
     def get_x(self) -> np.ndarray:
-        """Returns the current vector of diameter indexes."""
-        return self._current_x
+        """Returns a copy of the current vector of diameter indexes."""
+        return self._current_x.copy()
 
     def check(self, mode: str = 'TF') -> Union[bool, Tuple[bool, np.ndarray], np.ndarray]:
         """Checks pressure constraints across all time steps.
@@ -180,23 +179,21 @@ class Optimization:
         et.ENinitH(0)
         while True:
             et.ENrunH()
-            
+
             # Check nodal pressures
             for i, node in enumerate(self.nodes):
                 calculated_p = et.ENgetnodevalue(int(node['node_idx']), et.EN_PRESSURE)
                 required_p = float(node['min_pressure'])
                 deficit = required_p - calculated_p
-                
+
                 if deficit > 0:
                     overall_status = False
-                    if mode == 'TF':
-                        return False
 
                 if mode == 'PD' and deficits is not None:
                     if deficits[i] > deficit:
                         deficits[i] = deficit
 
-            # Check link headlosses
+            # Track link headlosses for UH mode
             if mode == 'UH' and max_hls is not None:
                 for i in range(len(self.pipes)):
                     hl = et.ENgetlinkvalue(int(self.pipes[i]['link_idx']), et.EN_HEADLOSS)
@@ -206,14 +203,11 @@ class Optimization:
             if et.ENnextH() == 0:
                 break
 
-        if mode == 'TF':
-            return overall_status
         if mode == 'UH':
             sorted_indices = np.argsort(max_hls)[::-1]
             return overall_status, sorted_indices
         if mode == 'PD':
-            return deficits or np.array([])
-            
+            return deficits if deficits is not None else np.array([])
         return overall_status
 
     def get_cost(self) -> float:
@@ -228,7 +222,7 @@ class Optimization:
         """Executes the optimization process."""
         start_time = perf_counter()
         solution = None
-        
+
         logger.info(f"Optimization started at: {strftime('%H:%M:%S', localtime())}")
 
         if self.algorithm == ALGORITHM_UH:
@@ -240,8 +234,8 @@ class Optimization:
             _, sol_x = nsga2(self)
             solution = np.array(sol_x, dtype=np.int32) if sol_x is not None else None
 
-        if self.polish and solution is not None:
-            solution = self._apply_polish(solution)
+        if self.refinement and solution is not None:
+            solution = self._apply_refinement(solution)
 
         if solution is not None:
             self._handle_success(solution)
@@ -259,7 +253,7 @@ class Optimization:
             status, sorted_hls = self.check(mode='UH')
             if status:
                 return self.get_x().copy()
-            
+
             expanded = False
             for idx in sorted_hls:
                 x = self.get_x().copy()
@@ -274,6 +268,7 @@ class Optimization:
     def _solve_scipy(self) -> Optional[np.ndarray]:
         """SciPy optimization wrapper."""
         bounds = list(zip(self.lbound, self.ubound))
+
         def objective(x_params):
             self.set_x(np.round(x_params).astype(np.int32))
             return self.get_cost() if self.check(mode='TF') else PENALTY_VALUE
@@ -291,15 +286,15 @@ class Optimization:
         self.set_x(final_x)
         return final_x if self.check(mode='TF') else None
 
-    def _apply_polish(self, solution: np.ndarray) -> np.ndarray:
-        """Manual polish to reduce diameters of non-critical pipes."""
-        logger.info("+++ APPLYING POLISH REFINEMENT +++")
+    def _apply_refinement(self, solution: np.ndarray) -> np.ndarray:
+        """Manual refinement to reduce diameters of non-critical pipes."""
+        logger.info("+++ APPLYING REFINEMENT +++")
         refined = solution.copy()
         # Simplified greedy approach: try to reduce each pipe price-wise
         indices_by_saving = sorted(range(self.dimension), 
                                    key=lambda i: float(self.catalog[str(self.pipes[i]['series'])][int(solution[i])]['price']),
                                    reverse=True)
-        
+
         for idx in indices_by_saving:
             while refined[idx] > 0:
                 refined[idx] -= 1
@@ -308,7 +303,7 @@ class Optimization:
                     refined[idx] += 1 # Undo
                     break
                 logger.debug(f"Reduced pipe {self.pipes[idx]['id']}")
-        
+
         return refined
 
     def _handle_success(self, solution: np.ndarray) -> None:
@@ -316,7 +311,7 @@ class Optimization:
         self.set_x(solution)
         cost = self.get_cost()
         logger.info(f"Success! Final Network Cost: {cost:.2f}")
-        
+
         alg_name = {ALGORITHM_UH: 'UH', ALGORITHM_DE: 'DE', ALGORITHM_DA: 'DA', ALGORITHM_NSGA2: 'NSGA2'}[self.algorithm]
         out_path = self.inp_file.parent / (self.inp_file.stem + f"_Solved_{alg_name}.inp")
         et.ENsaveinpfile(str(out_path))
@@ -327,14 +322,14 @@ class Optimization:
         logger.info("\n" + "*" * 20 + " FINAL SOLUTION " + "*" * 20)
         logger.info(f"{'Pipe ID':>16} {'Series':>12} {'Diam':>8} {'Rough':>8} {'Len':>8} {'Price':>8} {'Total':>10}")
         logger.info("-" * 80)
-        
+
         for i, pipe in enumerate(self.pipes):
             size = int(x[i])
             cat = self.catalog[str(pipe['series'])][size]
             d, r, p = float(cat['diameter']), float(cat['roughness']), float(cat['price'])
-            l = float(pipe['length'])
-            logger.info(f"{str(pipe['id']):>16} {str(pipe['series']):>12} {d:8.1f} {r:8.4f} {l:8.1f} {p:8.2f} {l*p:10.2f}")
-            
+            length = float(pipe['length'])
+            logger.info(f"{str(pipe['id']):>16} {str(pipe['series']):>12} {d:8.1f} {r:8.4f} {length:8.1f} {p:8.2f} {length * p:10.2f}")
+
         logger.info("-" * 80)
         logger.info(f"TOTAL NETWORK COST: {self.get_cost():.2f}")
         logger.info("*" * 56 + "\n")
@@ -348,7 +343,10 @@ class Optimization:
             pass
 
 
-def main(argv: List[str]) -> None:
+def main(argv: Optional[List[str]] = None) -> None:
+    """Entry point for the PPNO command-line tool."""
+    if argv is None:
+        argv = sys.argv
     if len(argv) < 2:
         logger.error("Usage: ppno <problem_file.ext>")
         return
@@ -357,14 +355,17 @@ def main(argv: List[str]) -> None:
     logger.info(" PRESSURIZED PIPE NETWORK OPTIMIZER ")
     logger.info("=" * 80)
 
+    opt = None
     try:
         opt = Optimization(argv[1])
         solution = opt.solve()
         if solution is not None:
             opt.pretty_print(solution)
-        opt.close()
     except Exception:
         logger.exception("A fatal error occurred during optimization:")
+    finally:
+        if opt is not None:
+            opt.close()
 
 
 if __name__ == "__main__":

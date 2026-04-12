@@ -5,7 +5,7 @@ delimited by [HEADER] labels, similar to EPANET .ext files.
 """
 
 from pathlib import Path
-from typing import Dict, List, Tuple, Union, Optional
+from typing import Dict, List, Tuple, Union
 
 
 class SectionParser:
@@ -46,13 +46,13 @@ class SectionParser:
         extracted_data: List[Tuple[str, ...]] = []
         is_inside_target_section = False
         target_header = f"[{section_name.upper()}]"
-        
+
         with self.file_path.open('r', encoding='utf-8') as f:
             for line in f:
                 clean_line = line.split(';')[0].strip()
                 if not clean_line:
                     continue
-                
+
                 if clean_line.startswith('['):
                     if is_inside_target_section:
                         break
@@ -62,7 +62,7 @@ class SectionParser:
 
                 if is_inside_target_section:
                     extracted_data.append(tuple(clean_line.split()))
-        
+
         return extracted_data
 
     def read(self) -> Dict[str, List[str]]:
@@ -73,14 +73,14 @@ class SectionParser:
             values are lists of raw lines (excluding comments).
         """
         all_sections: Dict[str, List[str]] = {}
-        current_section_name: Optional[str] = None
-        
+        current_section_name = None
+
         with self.file_path.open('r', encoding='utf-8') as f:
             for line in f:
                 clean_line = line.split(';')[0].strip()
                 if not clean_line:
                     continue
-                
+
                 if clean_line.startswith('[') and clean_line.endswith(']'):
                     current_section_name = clean_line.strip('[]').upper()
                     if current_section_name == 'END':
@@ -88,7 +88,7 @@ class SectionParser:
                     all_sections[current_section_name] = []
                 elif current_section_name:
                     all_sections[current_section_name].append(clean_line)
-                    
+
         return all_sections
 
     @staticmethod

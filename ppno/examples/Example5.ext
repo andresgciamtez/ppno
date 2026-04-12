@@ -6,8 +6,8 @@ Balerma Irrigation Network. Almería (Spain)
 ./examples/BIN.inp
 
 [OPTIONS]
-Algorithm UH ; GD (Gradient Descent), DE (Differential Evolution) or DA (Dual Annaeling)
-Polish NO    ; Polish will make a slight final improvement, YES/NO
+Algorithm UH ; UH (Unit Headloss Heuristic), DE (Differential Evolution) or DA (Dual Annealing)
+Refinement NO    ; Refinement will make a slight final improvement, YES/NO
 
 [PIPES]
 ; ID    series
@@ -928,3 +928,5 @@ PVC         723.8    0.0025    261.95
 PVC         904.8    0.0025    409.30
 
 [END]
+
+

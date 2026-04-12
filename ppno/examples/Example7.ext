@@ -7,8 +7,8 @@ Hanoi example by Fujiwara and Khang, Water Resources Research, 1990
 
 [OPTIONS]
 
-Algorithm NSGA2	; GD (Gradient Descent), DE (Differential Evolution), DA (Dual Annaeling) or NSGA2
-Polish YES      ; Polish will make a slight final improvement, YES/NO
+Algorithm NSGA2	; UH (Unit Headloss Heuristic), DE (Differential Evolution), DA (Dual Annealing) or NSGA2
+Refinement YES      ; Refinement will make a slight final improvement, YES/NO
 
 [PIPES]
 ;ID     series
@@ -91,3 +91,5 @@ PVC     724.8        130.0   180.75
 PVC     966.4        130.0   278.28
 
 [END]
+
+
