@@ -11,8 +11,8 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Optional, Union, Any
 
 import numpy as np
-import toolkit as et
-import section_parser as sp
+from . import toolkit as et
+from . import section_parser as sp
 
 # Logger configuration
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -65,7 +65,12 @@ class Optimization:
 
         if 'INP' not in sections or not sections['INP']:
             raise ValueError("The [INP] section is missing or empty in the .ext file.")
-        self.inp_file = Path(sections['INP'][0])
+        inp_path = Path(sections['INP'][0])
+        if not inp_path.exists():
+            # If not found at the specified path, try relative to the .ext file (only filename)
+            inp_path = self.problem_file.parent / inp_path.name
+            
+        self.inp_file = inp_path
         self.rpt_file = self.inp_file.with_suffix('.rpt')
 
         logger.info(f"Loading optimization problem: {self.problem_file}")
@@ -230,7 +235,7 @@ class Optimization:
         elif self.algorithm in [ALGORITHM_DE, ALGORITHM_DA]:
             solution = self._solve_scipy()
         elif self.algorithm == ALGORITHM_NSGA2:
-            from gao import nsga2
+            from .gao import nsga2
             _, sol_x = nsga2(self)
             solution = np.array(sol_x, dtype=np.int32) if sol_x is not None else None
 

@@ -31,6 +31,15 @@ class SectionParser:
         if not self.file_path.exists():
             raise FileNotFoundError(f"Source file not found: {self.file_path}")
 
+    def _get_lines(self) -> List[str]:
+        """Helper to read lines with encoding fallback (UTF-8, then CP1252)."""
+        try:
+            with self.file_path.open('r', encoding='utf-8') as f:
+                return f.readlines()
+        except UnicodeDecodeError:
+            with self.file_path.open('r', encoding='cp1252') as f:
+                return f.readlines()
+
     def read_section(self, section_name: str) -> List[Tuple[str, ...]]:
         """Reads a specific section from the file.
 
@@ -47,8 +56,7 @@ class SectionParser:
         is_inside_target_section = False
         target_header = f"[{section_name.upper()}]"
 
-        with self.file_path.open('r', encoding='utf-8') as f:
-            for line in f:
+        for line in self._get_lines():
                 clean_line = line.split(';')[0].strip()
                 if not clean_line:
                     continue
@@ -75,8 +83,7 @@ class SectionParser:
         all_sections: Dict[str, List[str]] = {}
         current_section_name = None
 
-        with self.file_path.open('r', encoding='utf-8') as f:
-            for line in f:
+        for line in self._get_lines():
                 clean_line = line.split(';')[0].strip()
                 if not clean_line:
                     continue

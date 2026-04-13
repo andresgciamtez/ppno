@@ -1,6 +1,12 @@
 include README.md
 include LICENSE
-include ppno/epanet/Darwin/*
-include ppno/epanet/Linux/*
-include ppno/epanet/Windows/*
-include ppno/examples/*
+include pyproject.toml
+include setup.py
+
+recursive-include ppno/epanet *.dll *.so *.dylib
+recursive-include ppno/examples *.ext *.inp
+
+global-exclude __pycache__
+global-exclude *.py[cod]
+global-exclude *.rpt
+global-exclude *_Solved_*.inp

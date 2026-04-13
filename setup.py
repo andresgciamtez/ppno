@@ -11,6 +11,10 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     url='https://github.com/andresgciamtez/ppno',
+    project_urls={
+        "Bug Tracker": "https://github.com/andresgciamtez/ppno/issues",
+    },
+    keywords="water-networks optimization epanet hydraulics pipe-sizing",
     python_requires='>=3.8',
     install_requires=[
         'numpy>=1.20.0',
@@ -20,6 +24,8 @@ setup(
     extras_require={
         'dev': [
             'pytest>=7.0.0',
+            'build',
+            'twine'
         ]
     },
     classifiers=[

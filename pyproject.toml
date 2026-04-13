@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ppno"
+version = "0.3.0"
+authors = [
+  { name="Andrés García Martínez", email="ppnoptimizer@gmail.com" },
+]
+description = "Pressurized Pipe Network Optimizer"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering",
+]
+dependencies = [
+    "numpy>=1.20.0",
+    "scipy>=1.7.0",
+    "pygmo>=2.18.0"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/andresgciamtez/ppno"
+"Bug Tracker" = "https://github.com/andresgciamtez/ppno/issues"
+
+[project.scripts]
+ppno = "ppno.ppno:main"
+
+[tool.setuptools]
+packages = ["ppno"]
+include-package-data = true
