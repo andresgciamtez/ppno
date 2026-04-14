@@ -10,17 +10,10 @@ Modernized and refactored version with improved nomenclature and Pythonic standa
 
 ## INSTALLATION
 
-Requires [Conda](https://docs.conda.io/en/latest/miniconda.html).
+It is highly recommended to install `pygmo` using Conda before installing `ppno`:
 
 ```powershell
-# 1. Create and activate a dedicated environment
-conda create -n ppno python=3.9
-conda activate ppno
-
-# 2. Install binary dependencies via conda-forge
-conda install -c conda-forge numpy scipy pygmo
-
-# 3. Install ppno from the source directory
+conda install -c conda-forge pygmo
 pip install .
 ```
 
@@ -122,5 +115,3 @@ The optimized results are displayed in the console and a new EPANET file is gene
 Sample problems are available in the `ppno/examples/` directory.
 
 ---
-
-
