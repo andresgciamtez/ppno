@@ -14,7 +14,7 @@ It is highly recommended to install `pygmo` using Conda before installing `ppno`
 
 ```powershell
 conda install -c conda-forge pygmo
-pip install ppno
+pip install .
 ```
 
 ## DEPENDENCIES
