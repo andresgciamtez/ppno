@@ -123,21 +123,4 @@ Sample problems are available in the `ppno/examples/` directory.
 
 ---
 
-## BUILDING THE INSTALLER (for developers)
 
-A standalone Windows `.exe` installer can be built locally for internal distribution.
-
-### Requirements
-- [Conda](https://docs.conda.io/en/latest/miniconda.html) installed on the system.
-- `constructor` installed in the active Conda environment (`conda install constructor`).
-
-### Steps
-1. Open an **Anaconda Prompt** and activate the development environment (`conda activate ppno`).
-2. Navigate to the project root.
-3. Run the build script:
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File .\build_installer.ps1
-   ```
-
-The script builds a pip wheel and uses `constructor` to package it alongside all Conda
-dependencies (Python, NumPy, SciPy, PyGMO, Epanet binaries) into a self-contained `.exe`.
