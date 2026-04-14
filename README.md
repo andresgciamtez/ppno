@@ -3,7 +3,7 @@
 2019-2026 - Andrés García Martínez (ppnoptimizer@gmail.com)
 Licensed under the Apache License 2.0. http://www.apache.org/licenses/
 
-## VERSION 0.3.0
+## VERSION 0.3.1
 Modernized and refactored version with improved nomenclature and Pythonic standards.
 
 ---
@@ -116,3 +116,23 @@ If refinement was enabled, an additional `+Refinement` indicator is added.
 
 ## EXAMPLES
 Sample problems are available in the `ppno/examples/` directory.
+
+---
+
+## DISTRIBUTION
+
+You can generate a standalone installer (`.exe`) for Windows that includes Python and all required libraries (including `pygmo` and Epanet binaries). This allows the application to be installed on any machine without pre-existing software.
+
+### Requirements for building:
+- [Conda](https://docs.conda.io/en/latest/miniconda.html) installed on the system.
+- `conda-build` and `constructor` (the build script will install them automatically if missing).
+
+### Steps to build:
+1. Open a terminal with `conda` access (e.g., Anaconda Prompt).
+2. Navigate to the project root.
+3. Run the provided PowerShell script:
+   ```powershell
+   .\build_installer.ps1
+   ```
+
+The script will build a conda package and then use `constructor` to create the `.exe` file in the current directory.
