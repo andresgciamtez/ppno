@@ -1,10 +1,12 @@
 Metadata-Version: 2.4
 Name: ppno
-Version: 0.3.0
+Version: 0.3.1
 Summary: Pressurized Pipe Network Optimizer
 Home-page: https://github.com/andresgciamtez/ppno
 Author: Andrés García Martínez
-Author-email: ppnoptimizer@gmail.com
+Author-email: Andrés García Martínez <ppnoptimizer@gmail.com>
+Project-URL: Homepage, https://github.com/andresgciamtez/ppno
+Project-URL: Bug Tracker, https://github.com/andresgciamtez/ppno/issues
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
@@ -15,29 +17,29 @@ License-File: LICENSE
 Requires-Dist: numpy>=1.20.0
 Requires-Dist: scipy>=1.7.0
 Requires-Dist: pygmo>=2.18.0
-Provides-Extra: dev
-Requires-Dist: pytest>=7.0.0; extra == "dev"
 Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
 Dynamic: requires-python
-Dynamic: summary
 
 # PRESSURIZED PIPE NETWORK OPTIMIZER (PPNO)
 
 2019-2026 - Andrés García Martínez (ppnoptimizer@gmail.com)
 Licensed under the Apache License 2.0. http://www.apache.org/licenses/
 
-## VERSION 0.3.0
+## VERSION 0.3.1
 Modernized and refactored version with improved nomenclature and Pythonic standards.
 
 ---
+
+## INSTALLATION
+
+It is highly recommended to install `pygmo` using Conda before installing `ppno`:
+
+```powershell
+conda install -c conda-forge pygmo
+pip install ppno
+```
 
 ## DEPENDENCIES
 Requires (specified in `setup.py`):
@@ -138,3 +140,23 @@ If refinement was enabled, an additional `+Refinement` indicator is added.
 
 ## EXAMPLES
 Sample problems are available in the `ppno/examples/` directory.
+
+---
+
+## DISTRIBUTION
+
+You can generate a standalone installer (`.exe`) for Windows that includes Python and all required libraries (including `pygmo` and Epanet binaries). This allows the application to be installed on any machine without pre-existing software.
+
+### Requirements for building:
+- [Conda](https://docs.conda.io/en/latest/miniconda.html) installed on the system.
+- `conda-build` and `constructor` (the build script will install them automatically if missing).
+
+### Steps to build:
+1. Open a terminal with `conda` access (e.g., Anaconda Prompt).
+2. Navigate to the project root.
+3. Run the provided PowerShell script:
+   ```powershell
+   .\build_installer.ps1
+   ```
+
+The script will build a conda package and then use `constructor` to create the `.exe` file in the current directory.

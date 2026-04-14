@@ -1,43 +1,86 @@
 # Build Installer Script for PPNO
-# This script automates the creation of a standalone .exe installer using Constructor.
+# Strategy: Build a pip wheel, bundle it as an extra file, and install it via post_install.bat
 
 $ErrorActionPreference = "Stop"
 
 # 1. Check for required tools
 Write-Host "Checking for required tools..." -ForegroundColor Cyan
 if (!(Get-Command conda -ErrorAction SilentlyContinue)) {
-    Write-Error "Conda not found. Please install Miniconda or Anaconda."
+    Write-Error "Conda not found. Run this from an Anaconda Prompt."
 }
 
-# Install conda-build and constructor if missing
-Write-Host "Ensuring conda-build and constructor are installed..." -ForegroundColor Cyan
-conda install -y conda-build constructor -c conda-forge
+# 2. Build a pip wheel from the local source
+Write-Host "Building pip wheel..." -ForegroundColor Cyan
+$WheelDir = Join-Path (Get-Location) "dist"
+if (Test-Path $WheelDir) { Remove-Item -Recurse -Force $WheelDir }
+New-Item -ItemType Directory -Path $WheelDir
 
-# 2. Build the PPNO conda package
-Write-Host "Building PPNO conda package..." -ForegroundColor Cyan
-$BuildDir = Join-Path (Get-Location) "conda-out"
-if (Test-Path $BuildDir) { Remove-Item -Recurse -Force $BuildDir }
-New-Item -ItemType Directory -Path $BuildDir
+pip wheel . --no-deps -w $WheelDir
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "pip wheel failed with exit code $LASTEXITCODE"
+}
 
-# Run conda-build
-conda build conda.recipe --output-folder $BuildDir --no-anaconda-upload -c conda-forge
+# Find the generated wheel file
+$WheelFile = Get-ChildItem -Path $WheelDir -Filter "*.whl" | Select-Object -First 1
+if (-not $WheelFile) {
+    Write-Error "No .whl file found in $WheelDir"
+}
+Write-Host "Wheel built: $($WheelFile.Name)" -ForegroundColor Green
 
-# 3. Create a temporary construct.yaml with the local channel
+# Extract version from wheel name
+$WheelVersion = $WheelFile.BaseName -replace '^ppno-([\d.]+)-.*', '$1'
+
+# 3. Prepare the construct_temp.yaml
 Write-Host "Preparing constructor configuration..." -ForegroundColor Cyan
-$LocalChannel = "file:///" + ($BuildDir -replace "\\", "/")
-$OriginalConstruct = Get-Content construct.yaml -Raw
 $TempConstruct = "construct_temp.yaml"
 
-# Insert the local channel at the beginning of the channels list
-$UpdatedConstruct = $OriginalConstruct -replace "channels:", "channels:`n  - $LocalChannel"
-$UpdatedConstruct | Out-File $TempConstruct -Encoding utf8
+# Paths must use forward slashes in YAML
+$WheelPathYaml = ($WheelFile.FullName -replace "\\", "/")
+$PostInstallPathYaml = ((Join-Path (Get-Location) "post_install.bat") -replace "\\", "/")
+
+# Pre-build YAML lines that would confuse PowerShell's here-string parser
+$ExtraFileLine = "  - ${WheelPathYaml}: pkgs_pip/$($WheelFile.Name)"
+
+$ConstructContent = @"
+name: PPNO
+version: $WheelVersion
+company: Andres Garcia Martinez
+
+channels:
+  - conda-forge
+  - defaults
+
+specs:
+  - python=3.9.*
+  - numpy
+  - scipy
+  - pygmo
+
+extra_files:
+$ExtraFileLine
+
+post_install: $PostInstallPathYaml
+"@
+
+# Save without BOM
+$Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText(
+    (Join-Path (Get-Location) $TempConstruct),
+    $ConstructContent,
+    $Utf8NoBom
+)
 
 # 4. Run Constructor
 Write-Host "Running Constructor to generate the installer..." -ForegroundColor Cyan
 constructor . --config $TempConstruct
 
-# 5. Cleanup
-Write-Host "Cleaning up temporary files..." -ForegroundColor Cyan
-# Remove-Item $TempConstruct
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Constructor failed with exit code $LASTEXITCODE"
+}
 
-Write-Host "`nDone! Look for a .exe file in the current directory." -ForegroundColor Green
+# 5. Summary
+if (Get-ChildItem -Path . -Filter "*.exe" -ErrorAction SilentlyContinue) {
+    Write-Host "`nDone! Look for a .exe file in the current directory." -ForegroundColor Green
+} else {
+    Write-Error "Executable not found! Constructor may have failed silently."
+}

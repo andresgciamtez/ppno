@@ -352,7 +352,7 @@ def main(argv: Optional[List[str]] = None) -> None:
     """Entry point for the PPNO command-line tool."""
     if argv is None:
         argv = sys.argv
-    if len(argv) < 2:
+    if len(argv) < 2 or argv[1] in ['-h', '--help']:
         logger.error("Usage: ppno <problem_file.ext>")
         return
 

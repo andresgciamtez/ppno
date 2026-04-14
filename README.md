@@ -10,19 +10,33 @@ Modernized and refactored version with improved nomenclature and Pythonic standa
 
 ## INSTALLATION
 
-It is highly recommended to install `pygmo` using Conda before installing `ppno`:
+### Option A — Windows standalone installer (recommended for end users)
+
+Download the `PPNO-0.3.1-Windows-x86_64.exe` installer. Run it and follow the wizard.
+After installation, `ppno` will be available from any terminal. No Python or Conda required.
+
+### Option B — From source (for developers)
+
+Requires [Conda](https://docs.conda.io/en/latest/miniconda.html).
 
 ```powershell
-conda install -c conda-forge pygmo
-pip install ppno
+# 1. Create and activate a dedicated environment
+conda create -n ppno python=3.9
+conda activate ppno
+
+# 2. Install binary dependencies via conda-forge
+conda install -c conda-forge numpy scipy pygmo
+
+# 3. Install ppno from the source directory
+pip install .
 ```
 
+---
+
 ## DEPENDENCIES
-Requires (specified in `setup.py`):
 - `numpy`
 - `SciPy`
 - `PyGMO`
-- `pytest` (for development)
 
 ---
 
@@ -32,7 +46,6 @@ The program optimizes the pipe diameters of a pressure pipe network defined by a
 ---
 
 ## RUN
-You can run the optimizer directly using the installed entry point or by executing the module:
 ```powershell
 ppno problem.ext
 ```
@@ -101,16 +114,14 @@ Example:
 ```ini
 [CATALOG]
 PVC  90.0    0.100     1.00
-PVC  125.0    0.100     1.56
-PVC  150.0    0.100     1.75
+PVC  125.0   0.100     1.56
+PVC  150.0   0.100     1.75
 ```
 
 ---
 
 ## RESULTS
 The optimized results are displayed in the console and a new EPANET file is generated. The filename includes a suffix based on the algorithm used: `_Solved_UH`, `_Solved_DE`, etc.
-
-If refinement was enabled, an additional `+Refinement` indicator is added.
 
 ---
 
@@ -119,20 +130,21 @@ Sample problems are available in the `ppno/examples/` directory.
 
 ---
 
-## DISTRIBUTION
+## DISTRIBUTION (for developers)
 
-You can generate a standalone installer (`.exe`) for Windows that includes Python and all required libraries (including `pygmo` and Epanet binaries). This allows the application to be installed on any machine without pre-existing software.
+To build the standalone Windows installer:
 
-### Requirements for building:
+### Requirements
 - [Conda](https://docs.conda.io/en/latest/miniconda.html) installed on the system.
-- `conda-build` and `constructor` (the build script will install them automatically if missing).
+- `constructor` installed in the active Conda environment (`conda install constructor`).
 
-### Steps to build:
-1. Open a terminal with `conda` access (e.g., Anaconda Prompt).
+### Steps
+1. Open an **Anaconda Prompt** and activate the development environment (`conda activate ppno`).
 2. Navigate to the project root.
-3. Run the provided PowerShell script:
+3. Run the build script:
    ```powershell
-   .\build_installer.ps1
+   powershell -ExecutionPolicy Bypass -File .\build_installer.ps1
    ```
 
-The script will build a conda package and then use `constructor` to create the `.exe` file in the current directory.
+The script will build a pip wheel and use `constructor` to package it alongside all Conda
+dependencies (Python, NumPy, SciPy, PyGMO, Epanet binaries) into a self-contained `.exe`.

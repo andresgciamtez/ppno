@@ -1,5 +1,6 @@
 name: PPNO
 version: "0.3.1"
+default_prefix: "C:\\ppno"
 company: "Andrés García Martínez"
 
 # The channels to search for packages. 

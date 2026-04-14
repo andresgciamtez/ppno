@@ -1,6 +1,7 @@
 LICENSE
 MANIFEST.in
 README.md
+pyproject.toml
 setup.py
 ppno/__init__.py
 ppno/gao.py
@@ -13,6 +14,10 @@ ppno.egg-info/dependency_links.txt
 ppno.egg-info/entry_points.txt
 ppno.egg-info/requires.txt
 ppno.egg-info/top_level.txt
+ppno/epanet/darwin-x64/libepanet.dylib
+ppno/epanet/linux-x64/libepanet.so
+ppno/epanet/windows-x64/epanet2.dll
+ppno/epanet/windows-x86/epanet2.dll
 ppno/examples/BIN.inp
 ppno/examples/CNT.inp
 ppno/examples/Example1.ext
