@@ -1,9 +1,3 @@
-# Installer and Build files
-*.exe
-conda-out/
-construct_temp.yaml
-_pkgs_cache/
-
 # Python
 __pycache__/
 *.py[cod]
