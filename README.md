@@ -10,13 +10,6 @@ Modernized and refactored version with improved nomenclature and Pythonic standa
 
 ## INSTALLATION
 
-### Option A — Windows standalone installer (recommended for end users)
-
-Download the `PPNO-0.3.1-Windows-x86_64.exe` installer. Run it and follow the wizard.
-After installation, `ppno` will be available from any terminal. No Python or Conda required.
-
-### Option B — From source (for developers)
-
 Requires [Conda](https://docs.conda.io/en/latest/miniconda.html).
 
 ```powershell
@@ -130,9 +123,9 @@ Sample problems are available in the `ppno/examples/` directory.
 
 ---
 
-## DISTRIBUTION (for developers)
+## BUILDING THE INSTALLER (for developers)
 
-To build the standalone Windows installer:
+A standalone Windows `.exe` installer can be built locally for internal distribution.
 
 ### Requirements
 - [Conda](https://docs.conda.io/en/latest/miniconda.html) installed on the system.
@@ -146,5 +139,5 @@ To build the standalone Windows installer:
    powershell -ExecutionPolicy Bypass -File .\build_installer.ps1
    ```
 
-The script will build a pip wheel and use `constructor` to package it alongside all Conda
+The script builds a pip wheel and uses `constructor` to package it alongside all Conda
 dependencies (Python, NumPy, SciPy, PyGMO, Epanet binaries) into a self-contained `.exe`.
