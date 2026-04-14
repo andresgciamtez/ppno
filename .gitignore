@@ -1,0 +1,18 @@
+# Installer and Build files
+*.exe
+conda-out/
+construct_temp.yaml
+_pkgs_cache/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+
+# Testing
+.pytest_cache/
+*.rpt
+*_Solved_*.inp
