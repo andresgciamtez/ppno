@@ -8,14 +8,30 @@ Modernized and refactored version with improved nomenclature and Pythonic standa
 
 ---
 
-## INSTALLATION
+## 🛠 INSTALLATION
 
-It is highly recommended to install `pygmo` using Conda before installing `ppno`:
+The most reliable way to install **PPNO** is using [Conda](https://docs.conda.io/en/latest/miniconda.html) to manage the complex scientific dependencies (especially `PyGMO`).
 
-```powershell
-conda install -c conda-forge pygmo
-pip install .
-```
+### Step-by-Step Setup
+
+1. **Create and activate a dedicated environment:**
+   ```powershell
+   conda create -n ppno python=3.9
+   conda activate ppno
+   ```
+
+2. **Install binary dependencies via conda-forge:**
+   > [!IMPORTANT]
+   > We strongly recommend installing `pygmo` via Conda to avoid common compilation issues with `pip`.
+   ```powershell
+   conda install -c conda-forge numpy scipy pygmo
+   ```
+
+3. **Install PPNO from the local source directory:**
+   Navigate to the project root and run:
+   ```powershell
+   pip install .
+   ```
 
 ---
 
@@ -31,11 +47,26 @@ The program optimizes the pipe diameters of a pressure pipe network defined by a
 
 ---
 
-## RUN
+## 🚀 RUN
+
+PPNO is easy to use from the command line once installed.
+
+### Basic Syntax
 ```powershell
-ppno problem.ext
+ppno <problem_file.ext>
 ```
-Where `problem.ext` is the problem definition file.
+
+### Try an Example
+You can test the installation using one of the provided example problems:
+```powershell
+ppno ppno/examples/Example1.ext
+```
+
+### What happens during a run?
+1. **Validation**: PPNO parses your `.ext` file and loads the associated EPANET `.inp` network.
+2. **Optimization**: The selected algorithm searches for the best diameters to minimize cost while satisfying pressure constraints.
+3. **Execution**: Real-time progress is shown in the console.
+4. **Completion**: A final summary table is printed, and a new optimized EPANET `.inp` file is saved to disk.
 
 ---
 
