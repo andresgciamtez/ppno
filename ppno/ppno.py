@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Optional, Union, Any
 
 import numpy as np
-from . import toolkit as et
+from entoolkit import toolkit as et
 from . import section_parser as sp
 
 # Logger configuration

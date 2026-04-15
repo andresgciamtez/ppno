@@ -1,5 +1,5 @@
 import pytest
-from ppno import toolkit as et
+from entoolkit import toolkit as et
 
 
 def test_epanet_version():
