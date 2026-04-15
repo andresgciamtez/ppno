@@ -3,8 +3,8 @@
 2019-2026 - Andrés García Martínez (ppnoptimizer@gmail.com)
 Licensed under the Apache License 2.0. http://www.apache.org/licenses/
 
-## VERSION 0.3.1
-Modernized and refactored version with improved nomenclature and Pythonic standards.
+## VERSION 0.3.2
+Modernized version with multi-algorithm support and enhanced EPANET 2.2 integration.
 
 ---
 
@@ -43,10 +43,10 @@ The most reliable way to install **PPNO** is using [Conda](https://docs.conda.io
 ---
 
 ## DEPENDENCIES
-- `numpy`
-- `SciPy`
-- `PyGMO`
-- `entoolkit` (EPANET 2.2 Wrapper)
+- [numpy](https://numpy.org/)
+- [SciPy](https://scipy.org/)
+- [PyGMO](https://esa.github.io/pygmo2/)
+- [entoolkit](https://github.com/andresgciamtez/entoolkit) (EPANET 2.2 Wrapper)
 
 ---
 
@@ -159,3 +159,26 @@ The optimized results are displayed in the console and a new EPANET file is gene
 Sample problems are available in the `ppno/examples/` directory.
 
 ---
+
+## 📜 LICENSE & CITATION
+
+### License
+PPNO is licensed under the **Apache License 2.0**. You are free to use, modify, and distribute this software, provided you include the original copyright notice and a copy of the license.
+
+### Citation
+If you use PPNO in your research or professional projects, please cite it as follows:
+
+> García Martínez, A. (2019-2026). *PPNO: Pressurized Pipe Network Optimizer*. GitHub repository: [https://github.com/andresgciamtez/ppno](https://github.com/andresgciamtez/ppno)
+
+---
+
+## 🙏 ACKNOWLEDGMENTS
+
+- **[EPANET](https://www.epa.gov/water-research/epanet)**: Developed by the US EPA, the hydraulic engine of this tool.
+- **[Pagmo/PyGMO](https://esa.github.io/pygmo2/)**: For the powerful parallel optimization algorithms.
+- **SciPy Community**: For the robust implementation of global optimization methods.
+- **[entoolkit](https://github.com/andresgciamtez/entoolkit)**: For providing the modern Pythonic wrapper for EPANET 2.2.
+
+---
+
+2019-2026 - Cuenca, Spain. 🇪🇸
