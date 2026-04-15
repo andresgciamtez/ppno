@@ -21,10 +21,11 @@ logger = logging.getLogger(__name__)
 # Constants
 ALGORITHM_UH = 0
 ALGORITHM_DE = 1
-ALGORITHM_DA = 2
-ALGORITHM_NSGA2 = 3
 ALGORITHM_SHGO = 4
 ALGORITHM_DIRECT = 5
+ALGORITHM_MOEAD = 6
+ALGORITHM_MACO = 7
+ALGORITHM_PSO = 8
 PENALTY_VALUE = 1e24
 
 
@@ -104,7 +105,10 @@ class Optimization:
             'DA': ALGORITHM_DA, 
             'NSGA2': ALGORITHM_NSGA2, 
             'SHGO': ALGORITHM_SHGO, 
-            'DIRECT': ALGORITHM_DIRECT
+            'DIRECT': ALGORITHM_DIRECT,
+            'MOEAD': ALGORITHM_MOEAD,
+            'MACO': ALGORITHM_MACO,
+            'PSO': ALGORITHM_PSO
         }
 
         msg = "Algorithm: "
@@ -243,9 +247,19 @@ class Optimization:
             solution = self._solve_uh()
         elif self.algorithm in [ALGORITHM_DE, ALGORITHM_DA, ALGORITHM_SHGO, ALGORITHM_DIRECT]:
             solution = self._solve_scipy()
-        elif self.algorithm == ALGORITHM_NSGA2:
-            from .gao import nsga2
-            _, sol_x = nsga2(self)
+        elif self.algorithm in [ALGORITHM_NSGA2, ALGORITHM_MOEAD, ALGORITHM_MACO, ALGORITHM_PSO]:
+            from . import gao
+            sol_f = None
+            sol_x = None
+            if self.algorithm == ALGORITHM_NSGA2:
+                sol_f, sol_x = gao.nsga2(self)
+            elif self.algorithm == ALGORITHM_MOEAD:
+                sol_f, sol_x = gao.moead(self)
+            elif self.algorithm == ALGORITHM_MACO:
+                sol_f, sol_x = gao.maco(self)
+            elif self.algorithm == ALGORITHM_PSO:
+                sol_f, sol_x = gao.nspso(self)
+            
             solution = np.array(sol_x, dtype=np.int32) if sol_x is not None else None
 
         if self.refinement and solution is not None:
@@ -342,7 +356,10 @@ class Optimization:
             ALGORITHM_DA: 'DA', 
             ALGORITHM_NSGA2: 'NSGA2',
             ALGORITHM_SHGO: 'SHGO',
-            ALGORITHM_DIRECT: 'DIRECT'
+            ALGORITHM_DIRECT: 'DIRECT',
+            ALGORITHM_MOEAD: 'MOEAD',
+            ALGORITHM_MACO: 'MACO',
+            ALGORITHM_PSO: 'PSO'
         }[self.algorithm]
         out_path = self.inp_file.parent / (self.inp_file.stem + f"_Solved_{alg_name}.inp")
         et.ENsaveinpfile(str(out_path))

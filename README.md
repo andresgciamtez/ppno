@@ -106,6 +106,9 @@ Calculation options.
     - `NSGA2`: **Non-dominated Sorting Genetic Algorithm II**. Multi-objective approach via PyGMO.
     - `SHGO`: **Simplicial Homology Global Optimization**. Deterministic algorithm, useful for constrained problems.
     - `DIRECT`: **DIviding RECTangles**. Robust deterministic search algorithm.
+    - `MOEAD`: **Multi-Objective Evolutionary Algorithm based on Decomposition**. Advanced multi-objective solver.
+    - `MACO`: **Multi-Objective Ant Colony Optimization**. Nature-inspired algorithm perfect for discrete network paths.
+    - `PSO`: **Particle Swarm Optimization (NSPSO)**. Fast non-dominated sorting particle swarm optimizer.
 - **Refinement**: `YES` or `NO`. Enables a final greedy refinement to further reduce costs in non-critical pipes.
 
 Example:

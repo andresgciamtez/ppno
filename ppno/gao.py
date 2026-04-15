@@ -84,19 +84,15 @@ class PPNOProblem:
         return "Pressurized Pipe Network Optimization (Multi-objective)"
 
 
-def nsga2(optimization_instance: Any) -> Tuple[Optional[List[float]], Optional[np.ndarray]]:
-    """Runs the Non-dominated Sorting Genetic Algorithm II (NSGA-II).
-
+def evolve_ppno(optimization_instance: Any, 
+                algorithm_factory: Any, 
+                name: str) -> Tuple[Optional[List[float]], Optional[np.ndarray]]:
+    """Generic evolution loop for PyGMO algorithms.
+    
     Evolves a population of solutions to find the best valid (max_deficit <= 0)
     solution with the minimum cost.
-
-    Args:
-        optimization_instance: The optimization class instance to solve.
-
-    Returns:
-        A tuple (best_fitness, best_x) if a valid solution is found, else (None, None).
     """
-    logger.info('*** NSGA-II EVOLUTIONARY OPTIMIZATION ***')
+    logger.info(f'*** {name} OPTIMIZATION ***')
 
     start_time = perf_counter()
     prob = pg.problem(PPNOProblem(optimization_instance))
@@ -109,10 +105,8 @@ def nsga2(optimization_instance: Any) -> Tuple[Optional[List[float]], Optional[n
     best_valid_fitness: Optional[List[float]] = None
     best_valid_x: Optional[np.ndarray] = None
 
-    # Configure NSGA-II algorithm
-    algorithm = pg.algorithm(pg.nsga2(gen=GENERATIONS_PER_TRIAL))
-
-    # Initialize random population
+    # Initialize algorithm and random population
+    algorithm = pg.algorithm(algorithm_factory())
     population = pg.population(prob, size=POPULATION_SIZE)
 
     while True:
@@ -121,7 +115,7 @@ def nsga2(optimization_instance: Any) -> Tuple[Optional[List[float]], Optional[n
         trials += 1
         total_generations += GENERATIONS_PER_TRIAL
 
-        # Search for the best valid solution in the current population (Pareto Front)
+        # Search for the best valid solution in the current population
         fitness_values = population.get_f()
         solution_vectors = population.get_x()
 
@@ -162,3 +156,24 @@ def nsga2(optimization_instance: Any) -> Tuple[Optional[List[float]], Optional[n
             break
 
     return best_valid_fitness, best_valid_x
+
+
+def nsga2(optimization_instance: Any) -> Tuple[Optional[List[float]], Optional[np.ndarray]]:
+    """Runs the Non-dominated Sorting Genetic Algorithm II."""
+    return evolve_ppno(optimization_instance, lambda: pg.nsga2(gen=GENERATIONS_PER_TRIAL), "NSGA-II")
+
+
+def moead(optimization_instance: Any) -> Tuple[Optional[List[float]], Optional[np.ndarray]]:
+    """Runs Multi-Objective Evolutionary Algorithm based on Decomposition."""
+    return evolve_ppno(optimization_instance, lambda: pg.moead(gen=GENERATIONS_PER_TRIAL), "MOEAD")
+
+
+def maco(optimization_instance: Any) -> Tuple[Optional[List[float]], Optional[np.ndarray]]:
+    """Runs Multi-objective Ant Colony Optimizer."""
+    return evolve_ppno(optimization_instance, lambda: pg.maco(gen=GENERATIONS_PER_TRIAL), "MACO")
+
+
+def nspso(optimization_instance: Any) -> Tuple[Optional[List[float]], Optional[np.ndarray]]:
+    """Runs Non-dominated Sorting Particle Swarm Optimizer."""
+    return evolve_ppno(optimization_instance, lambda: pg.nspso(gen=GENERATIONS_PER_TRIAL), "NSP-SO (PSO)")
+
