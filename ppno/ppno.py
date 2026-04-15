@@ -23,6 +23,8 @@ ALGORITHM_UH = 0
 ALGORITHM_DE = 1
 ALGORITHM_DA = 2
 ALGORITHM_NSGA2 = 3
+ALGORITHM_SHGO = 4
+ALGORITHM_DIRECT = 5
 PENALTY_VALUE = 1e24
 
 
@@ -96,7 +98,14 @@ class Optimization:
         """Parses the OPTIONS section."""
         self.algorithm = ALGORITHM_UH
         self.refinement = False
-        alg_map = {'UH': ALGORITHM_UH, 'DE': ALGORITHM_DE, 'DA': ALGORITHM_DA, 'NSGA2': ALGORITHM_NSGA2}
+        alg_map = {
+            'UH': ALGORITHM_UH, 
+            'DE': ALGORITHM_DE, 
+            'DA': ALGORITHM_DA, 
+            'NSGA2': ALGORITHM_NSGA2, 
+            'SHGO': ALGORITHM_SHGO, 
+            'DIRECT': ALGORITHM_DIRECT
+        }
 
         msg = "Algorithm: "
         for line in options_lines:
@@ -232,7 +241,7 @@ class Optimization:
 
         if self.algorithm == ALGORITHM_UH:
             solution = self._solve_uh()
-        elif self.algorithm in [ALGORITHM_DE, ALGORITHM_DA]:
+        elif self.algorithm in [ALGORITHM_DE, ALGORITHM_DA, ALGORITHM_SHGO, ALGORITHM_DIRECT]:
             solution = self._solve_scipy()
         elif self.algorithm == ALGORITHM_NSGA2:
             from .gao import nsga2
@@ -282,10 +291,20 @@ class Optimization:
             from scipy.optimize import differential_evolution
             logger.info("*** DIFFERENTIAL EVOLUTION ***")
             result = differential_evolution(objective, bounds)
-        else:
+        elif self.algorithm == ALGORITHM_DA:
             from scipy.optimize import dual_annealing
             logger.info("*** DUAL ANNEALING ***")
             result = dual_annealing(objective, bounds)
+        elif self.algorithm == ALGORITHM_SHGO:
+            from scipy.optimize import shgo
+            logger.info("*** SHGO ***")
+            result = shgo(objective, bounds)
+        elif self.algorithm == ALGORITHM_DIRECT:
+            from scipy.optimize import direct
+            logger.info("*** DIRECT ***")
+            result = direct(objective, bounds)
+        else:
+            return None
 
         final_x = np.round(result.x).astype(np.int32)
         self.set_x(final_x)
@@ -317,7 +336,14 @@ class Optimization:
         cost = self.get_cost()
         logger.info(f"Success! Final Network Cost: {cost:.2f}")
 
-        alg_name = {ALGORITHM_UH: 'UH', ALGORITHM_DE: 'DE', ALGORITHM_DA: 'DA', ALGORITHM_NSGA2: 'NSGA2'}[self.algorithm]
+        alg_name = {
+            ALGORITHM_UH: 'UH', 
+            ALGORITHM_DE: 'DE', 
+            ALGORITHM_DA: 'DA', 
+            ALGORITHM_NSGA2: 'NSGA2',
+            ALGORITHM_SHGO: 'SHGO',
+            ALGORITHM_DIRECT: 'DIRECT'
+        }[self.algorithm]
         out_path = self.inp_file.parent / (self.inp_file.stem + f"_Solved_{alg_name}.inp")
         et.ENsaveinpfile(str(out_path))
         logger.info(f"Optimized model saved to: {out_path}")

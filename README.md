@@ -104,6 +104,8 @@ Calculation options.
     - `DE`: **Differential Evolution**. Robust global optimization from SciPy.
     - `DA`: **Dual Annealing**. Efficient global optimization for large spaces.
     - `NSGA2`: **Non-dominated Sorting Genetic Algorithm II**. Multi-objective approach via PyGMO.
+    - `SHGO`: **Simplicial Homology Global Optimization**. Deterministic algorithm, useful for constrained problems.
+    - `DIRECT`: **DIviding RECTangles**. Robust deterministic search algorithm.
 - **Refinement**: `YES` or `NO`. Enables a final greedy refinement to further reduce costs in non-critical pipes.
 
 Example:
