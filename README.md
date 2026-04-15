@@ -27,7 +27,14 @@ The most reliable way to install **PPNO** is using [Conda](https://docs.conda.io
    conda install -c conda-forge numpy scipy pygmo
    ```
 
-3. **Install PPNO from the local source directory:**
+3. **Install the EPANET Toolkit wrapper (entoolkit):**
+   PPNO now relies on the external `entoolkit` library. Install it from your local repository:
+   ```powershell
+   # Adjust path as necessary
+   pip install ../entoolkit/entoolkit
+   ```
+
+4. **Install PPNO from the local source directory:**
    Navigate to the project root and run:
    ```powershell
    pip install .
@@ -39,6 +46,7 @@ The most reliable way to install **PPNO** is using [Conda](https://docs.conda.io
 - `numpy`
 - `SciPy`
 - `PyGMO`
+- `entoolkit` (EPANET 2.2 Wrapper)
 
 ---
 
