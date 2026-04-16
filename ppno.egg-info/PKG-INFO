@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ppno
-Version: 0.3.1
+Version: 0.3.2
 Summary: Pressurized Pipe Network Optimizer
 Home-page: https://github.com/andresgciamtez/ppno
 Author: Andrés García Martínez
@@ -16,7 +16,9 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy>=1.20.0
 Requires-Dist: scipy>=1.7.0
-Requires-Dist: pygmo>=2.18.0
+Requires-Dist: entoolkit
+Provides-Extra: mo
+Requires-Dist: pygmo>=2.18.0; extra == "mo"
 Dynamic: author
 Dynamic: home-page
 Dynamic: license-file
@@ -27,8 +29,8 @@ Dynamic: requires-python
 2019-2026 - Andrés García Martínez (ppnoptimizer@gmail.com)
 Licensed under the Apache License 2.0. http://www.apache.org/licenses/
 
-## VERSION 0.3.1
-Modernized and refactored version with improved nomenclature and Pythonic standards.
+## VERSION 0.3.2
+Modernized version with multi-algorithm support and enhanced EPANET 2.2 integration.
 
 ---
 
@@ -51,7 +53,14 @@ The most reliable way to install **PPNO** is using [Conda](https://docs.conda.io
    conda install -c conda-forge numpy scipy pygmo
    ```
 
-3. **Install PPNO from the local source directory:**
+3. **Install the EPANET Toolkit wrapper (entoolkit):**
+   PPNO now relies on the external `entoolkit` library. Install it from your local repository:
+   ```powershell
+   # Adjust path as necessary
+   pip install ../entoolkit/entoolkit
+   ```
+
+4. **Install PPNO from the local source directory:**
    Navigate to the project root and run:
    ```powershell
    pip install .
@@ -60,9 +69,10 @@ The most reliable way to install **PPNO** is using [Conda](https://docs.conda.io
 ---
 
 ## DEPENDENCIES
-- `numpy`
-- `SciPy`
-- `PyGMO`
+- [numpy](https://numpy.org/)
+- [SciPy](https://scipy.org/)
+- [PyGMO](https://esa.github.io/pygmo2/)
+- [entoolkit](https://github.com/andresgciamtez/entoolkit) (EPANET 2.2 Wrapper)
 
 ---
 
@@ -120,6 +130,11 @@ Calculation options.
     - `DE`: **Differential Evolution**. Robust global optimization from SciPy.
     - `DA`: **Dual Annealing**. Efficient global optimization for large spaces.
     - `NSGA2`: **Non-dominated Sorting Genetic Algorithm II**. Multi-objective approach via PyGMO.
+    - `SHGO`: **Simplicial Homology Global Optimization**. Deterministic algorithm, useful for constrained problems.
+    - `DIRECT`: **DIviding RECTangles**. Robust deterministic search algorithm.
+    - `MOEAD`: **Multi-Objective Evolutionary Algorithm based on Decomposition**. Advanced multi-objective solver.
+    - `MACO`: **Multi-Objective Ant Colony Optimization**. Nature-inspired algorithm perfect for discrete network paths.
+    - `PSO`: **Particle Swarm Optimization (NSPSO)**. Fast non-dominated sorting particle swarm optimizer.
 - **Refinement**: `YES` or `NO`. Enables a final greedy refinement to further reduce costs in non-critical pipes.
 
 Example:
@@ -170,3 +185,26 @@ The optimized results are displayed in the console and a new EPANET file is gene
 Sample problems are available in the `ppno/examples/` directory.
 
 ---
+
+## 📜 LICENSE & CITATION
+
+### License
+PPNO is licensed under the **Apache License 2.0**. You are free to use, modify, and distribute this software, provided you include the original copyright notice and a copy of the license.
+
+### Citation
+If you use PPNO in your research or professional projects, please cite it as follows:
+
+> García Martínez, A. (2019-2026). *PPNO: Pressurized Pipe Network Optimizer*. GitHub repository: [https://github.com/andresgciamtez/ppno](https://github.com/andresgciamtez/ppno)
+
+---
+
+## 🙏 ACKNOWLEDGMENTS
+
+- **[EPANET](https://www.epa.gov/water-research/epanet)**: Developed by the US EPA, the hydraulic engine of this tool.
+- **[Pagmo/PyGMO](https://esa.github.io/pygmo2/)**: For the powerful parallel optimization algorithms.
+- **SciPy Community**: For the robust implementation of global optimization methods.
+- **[entoolkit](https://github.com/andresgciamtez/entoolkit)**: For providing the modern Pythonic wrapper for EPANET 2.2.
+
+---
+
+2019-2026

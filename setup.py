@@ -19,7 +19,6 @@ setup(
     install_requires=[
         'numpy>=1.20.0',
         'scipy>=1.7.0',
-        'pygmo>=2.18.0',
         'entoolkit'
     ],
     extras_require={
@@ -27,6 +26,9 @@ setup(
             'pytest>=7.0.0',
             'build',
             'twine'
+        ],
+        'mo': [
+            'pygmo>=2.18.0'
         ]
     },
     classifiers=[

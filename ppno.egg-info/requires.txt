@@ -1,3 +1,6 @@
 numpy>=1.20.0
 scipy>=1.7.0
+entoolkit
+
+[mo]
 pygmo>=2.18.0

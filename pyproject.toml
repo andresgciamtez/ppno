@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ppno"
-version = "0.3.1"
+version = "0.3.2"
 authors = [
   { name="Andrés García Martínez", email="ppnoptimizer@gmail.com" },
 ]
@@ -20,8 +20,11 @@ classifiers = [
 dependencies = [
     "numpy>=1.20.0",
     "scipy>=1.7.0",
-    "pygmo>=2.18.0"
+    "entoolkit"
 ]
+
+[project.optional-dependencies]
+mo = ["pygmo>=2.18.0"]
 
 [project.urls]
 "Homepage" = "https://github.com/andresgciamtez/ppno"

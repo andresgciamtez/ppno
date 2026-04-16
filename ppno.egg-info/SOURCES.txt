@@ -16,10 +16,10 @@ ppno.egg-info/top_level.txt
 ppno/examples/BIN.inp
 ppno/examples/CNT.inp
 ppno/examples/Example1.ext
+ppno/examples/Example10.ext
+ppno/examples/Example11.ext
+ppno/examples/Example12.ext
 ppno/examples/Example2.ext
-ppno/examples/Example3.ext
-ppno/examples/Example4.ext
-ppno/examples/Example5.ext
 ppno/examples/Example6.ext
 ppno/examples/Example7.ext
 ppno/examples/HAN.inp
