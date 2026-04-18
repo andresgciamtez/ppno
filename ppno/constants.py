@@ -1,0 +1,16 @@
+"""Global constants and algorithm IDs for PPNO."""
+
+# Algorithm IDs
+ALGORITHM_UH = 0
+ALGORITHM_DE = 1
+ALGORITHM_DA = 2
+ALGORITHM_NSGA2 = 3
+ALGORITHM_SHGO = 4
+ALGORITHM_DIRECT = 5
+ALGORITHM_MOEAD = 6
+ALGORITHM_MACO = 7
+ALGORITHM_PSO = 8
+
+# Optimization parameters
+PENALTY_VALUE = 1e24
+MAX_RETRIES = 3

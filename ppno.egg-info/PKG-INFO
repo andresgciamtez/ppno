@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ppno
-Version: 0.3.2
+Version: 0.4.0
 Summary: Pressurized Pipe Network Optimizer
 Home-page: https://github.com/andresgciamtez/ppno
 Author: Andrés García Martínez
@@ -29,8 +29,8 @@ Dynamic: requires-python
 2019-2026 - Andrés García Martínez (ppnoptimizer@gmail.com)
 Licensed under the Apache License 2.0. http://www.apache.org/licenses/
 
-## VERSION 0.3.2
-Modernized version with multi-algorithm support and enhanced EPANET 2.2 integration.
+## VERSION 0.4.0
+Modernized version with multi-algorithm support, automatic retries, and enhanced EPANET 2.2 integration.
 
 ---
 
@@ -100,7 +100,7 @@ ppno ppno/examples/Example1.ext
 1. **Validation**: PPNO parses your `.ext` file and loads the associated EPANET `.inp` network.
 2. **Optimization**: The selected algorithm searches for the best diameters to minimize cost while satisfying pressure constraints.
 3. **Execution**: Real-time progress is shown in the console.
-4. **Completion**: A final summary table is printed, and a new optimized EPANET `.inp` file is saved to disk.
+4. **Completion**: A final **ALGORITHM SUMMARY** table is printed, showing the performance (time, simulations, success, cost) of each run, and the best optimized EPANET `.inp` file is saved to disk.
 
 ---
 
@@ -125,22 +125,24 @@ networks/hanoi.inp
 
 ### [OPTIONS]
 Calculation options.
-- **Algorithm**: The optimization method to use:
-    - `UH`: **Unit Headloss Heuristic**. Simple and fast heuristic that increases diameters based on maximum headloss.
-    - `DE`: **Differential Evolution**. Robust global optimization from SciPy.
-    - `DA`: **Dual Annealing**. Efficient global optimization for large spaces.
-    - `NSGA2`: **Non-dominated Sorting Genetic Algorithm II**. Multi-objective approach via PyGMO.
-    - `SHGO`: **Simplicial Homology Global Optimization**. Deterministic algorithm, useful for constrained problems.
-    - `DIRECT`: **DIviding RECTangles**. Robust deterministic search algorithm.
-    - `MOEAD`: **Multi-Objective Evolutionary Algorithm based on Decomposition**. Advanced multi-objective solver.
-    - `MACO`: **Multi-Objective Ant Colony Optimization**. Nature-inspired algorithm perfect for discrete network paths.
-    - `PSO`: **Particle Swarm Optimization (NSPSO)**. Fast non-dominated sorting particle swarm optimizer.
+- **Algorithm**: The optimization method(s) to use. You can specify a single algorithm or a space-separated list of multiple algorithms to run in sequence.
+    - `UH`: **Unit Headloss Heuristic**. Simple and fast heuristic that increases diameters based on maximum headloss (Internal).
+    - `DE`: **Differential Evolution**. Robust global optimization from **SciPy**.
+    - `DA`: **Dual Annealing**. Efficient global optimization for large spaces from **SciPy**.
+    - `SHGO`: **Simplicial Homology Global Optimization**. Deterministic algorithm, useful for constrained problems from **SciPy**.
+    - `DIRECT`: **DIviding RECTangles**. Robust deterministic search algorithm from **SciPy**.
+    - `NSGA2`: **Non-dominated Sorting Genetic Algorithm II**. Multi-objective approach via **PyGMO**.
+    - `MOEAD`: **Multi-Objective Evolutionary Algorithm based on Decomposition**. Advanced multi-objective solver via **PyGMO**.
+    - `MACO`: **Multi-Objective Ant Colony Optimization**. Nature-inspired algorithm perfect for discrete network paths via **PyGMO**.
+    - `PSO`: **Particle Swarm Optimization (NSPSO)**. Fast non-dominated sorting particle swarm optimizer via **PyGMO**.
+- **MaxRetries**: (Optional) Number of times to retry an algorithm if it fails to find a feasible solution. Default is 3.
 - **Refinement**: `YES` or `NO`. Enables a final greedy refinement to further reduce costs in non-critical pipes.
 
 Example:
 ```ini
 [OPTIONS]
-Algorithm UH
+Algorithm DE DA UH
+MaxRetries 2
 Refinement YES
 ```
 

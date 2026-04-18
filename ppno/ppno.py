@@ -19,16 +19,11 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
 # Constants
-ALGORITHM_UH = 0
-ALGORITHM_DE = 1
-ALGORITHM_DA = 2
-ALGORITHM_NSGA2 = 3
-ALGORITHM_SHGO = 4
-ALGORITHM_DIRECT = 5
-ALGORITHM_MOEAD = 6
-ALGORITHM_MACO = 7
-ALGORITHM_PSO = 8
-PENALTY_VALUE = 1e24
+from .constants import (
+    ALGORITHM_UH, ALGORITHM_DE, ALGORITHM_DA, ALGORITHM_NSGA2,
+    ALGORITHM_SHGO, ALGORITHM_DIRECT, ALGORITHM_MOEAD, ALGORITHM_MACO,
+    ALGORITHM_PSO, PENALTY_VALUE, MAX_RETRIES
+)
 
 
 class Optimization:
@@ -49,6 +44,10 @@ class Optimization:
         dimension (int): Number of variable pipes.
         lbound (np.ndarray): Lower bounds for variable indexes.
         ubound (np.ndarray): Upper bounds for variable indexes.
+        algorithms (List[int]): List of algorithms to execute.
+        max_retries (int): Maximum retry attempts for failed algorithms.
+        simulation_cycles (int): Counter for network hydraulic simulation runs.
+        results (List[Dict[str, Any]]): Collected performance data.
     """
 
     def __init__(self, problem_file: Union[str, Path]):
@@ -95,11 +94,15 @@ class Optimization:
 
         self.lbound = np.zeros(self.dimension, dtype=np.int32)
         self.ubound = np.array([len(self.catalog[str(p['series'])]) - 1 for p in self.pipes], dtype=np.int32)
+        
+        self.simulation_cycles = 0
+        self.results = []
         logger.info("-" * 80)
 
     def _load_options(self, options_lines: List[str], parser: sp.SectionParser) -> None:
         """Parses the OPTIONS section."""
-        self.algorithm = ALGORITHM_UH
+        self.algorithms = [ALGORITHM_UH]
+        self.max_retries = MAX_RETRIES
         self.refinement = False
         alg_map = {
             'UH': ALGORITHM_UH, 
@@ -113,17 +116,25 @@ class Optimization:
             'PSO': ALGORITHM_PSO
         }
 
-        msg = "Algorithm: "
         for line in options_lines:
-            key, value = parser.line_to_tuple(line)
-            if key.upper() == 'ALGORITHM':
-                self.algorithm = alg_map.get(value.upper(), ALGORITHM_UH)
-                msg += value
-            elif key.upper() in ['POLISH', 'REFINEMENT', 'REFINE']:
-                self.refinement = value.upper() in ['YES', 'Y']
-                msg += " (with refinement)" if self.refinement else ""
+            tokens = parser.line_to_tuple(line)
+            if not tokens:
+                continue
+            
+            key = tokens[0].upper()
+            values = tokens[1:]
 
-        logger.info(msg)
+            if key == 'ALGORITHM' and values:
+                self.algorithms = [alg_map.get(v.upper(), ALGORITHM_UH) for v in values]
+                logger.info(f"Algorithms: {', '.join(values)}")
+            elif key in ['MAXRETRIES', 'RETRIES']:
+                if values:
+                    self.max_retries = int(values[0])
+                    logger.info(f"Max Retries: {self.max_retries}")
+            elif key in ['POLISH', 'REFINEMENT', 'REFINE']:
+                if values:
+                    self.refinement = values[0].upper() in ['YES', 'Y']
+                    logger.info(f"Refinement: {self.refinement}")
 
     def _load_pipes(self, pipe_lines: List[str], parser: sp.SectionParser) -> None:
         """Parses the PIPES section."""
@@ -199,6 +210,7 @@ class Optimization:
         et.ENinitH(0)
         while True:
             et.ENrunH()
+            self.simulation_cycles += 1
 
             # Check nodal pressures
             for i, node in enumerate(self.nodes):
@@ -240,40 +252,108 @@ class Optimization:
 
     def solve(self) -> Optional[np.ndarray]:
         """Executes the optimization process."""
-        start_time = perf_counter()
-        solution = None
+        self.results = []
+        overall_best_solution = None
+        overall_best_cost = float('inf')
 
-        logger.info(f"Optimization started at: {strftime('%H:%M:%S', localtime())}")
+        logger.info(f"Optimization session started at: {strftime('%H:%M:%S', localtime())}")
 
-        if self.algorithm == ALGORITHM_UH:
-            solution = self._solve_uh()
-        elif self.algorithm in [ALGORITHM_DE, ALGORITHM_DA, ALGORITHM_SHGO, ALGORITHM_DIRECT]:
-            solution = self._solve_scipy()
-        elif self.algorithm in [ALGORITHM_NSGA2, ALGORITHM_MOEAD, ALGORITHM_MACO, ALGORITHM_PSO]:
-            from . import gao
-            sol_f = None
-            sol_x = None
-            if self.algorithm == ALGORITHM_NSGA2:
-                sol_f, sol_x = gao.nsga2(self)
-            elif self.algorithm == ALGORITHM_MOEAD:
-                sol_f, sol_x = gao.moead(self)
-            elif self.algorithm == ALGORITHM_MACO:
-                sol_f, sol_x = gao.maco(self)
-            elif self.algorithm == ALGORITHM_PSO:
-                sol_f, sol_x = gao.nspso(self)
+        alg_names = {
+            ALGORITHM_UH: 'UH', 
+            ALGORITHM_DE: 'DE', 
+            ALGORITHM_DA: 'DA', 
+            ALGORITHM_NSGA2: 'NSGA2',
+            ALGORITHM_SHGO: 'SHGO',
+            ALGORITHM_DIRECT: 'DIRECT',
+            ALGORITHM_MOEAD: 'MOEAD',
+            ALGORITHM_MACO: 'MACO',
+            ALGORITHM_PSO: 'PSO'
+        }
+
+        for alg_id in self.algorithms:
+            alg_name = alg_names.get(alg_id, 'UNKNOWN')
             
-            solution = np.array(sol_x, dtype=np.int32) if sol_x is not None else None
+            for attempt in range(1, self.max_retries + 1):
+                logger.info("-" * 40)
+                logger.info(f"ALGORITHM: {alg_name} (Attempt {attempt}/{self.max_retries})")
+                
+                start_time = perf_counter()
+                self.simulation_cycles = 0  # Reset for each attempt
+                
+                # Set temporary algorithm ID for internal usage
+                self.algorithm = alg_id
+                
+                solution = None
+                if alg_id == ALGORITHM_UH:
+                    solution = self._solve_uh()
+                elif alg_id in [ALGORITHM_DE, ALGORITHM_DA, ALGORITHM_SHGO, ALGORITHM_DIRECT]:
+                    from . import scipy_solver
+                    solution = scipy_solver.solve_scipy(self, alg_id)
+                elif alg_id in [ALGORITHM_NSGA2, ALGORITHM_MOEAD, ALGORITHM_MACO, ALGORITHM_PSO]:
+                    from . import pygmo_solver
+                    sol_f = None
+                    sol_x = None
+                    if alg_id == ALGORITHM_NSGA2:
+                        sol_f, sol_x = pygmo_solver.nsga2(self)
+                    elif alg_id == ALGORITHM_MOEAD:
+                        sol_f, sol_x = pygmo_solver.moead(self)
+                    elif alg_id == ALGORITHM_MACO:
+                        sol_f, sol_x = pygmo_solver.maco(self)
+                    elif alg_id == ALGORITHM_PSO:
+                        sol_f, sol_x = pygmo_solver.nspso(self)
+                    
+                    solution = np.array(sol_x, dtype=np.int32) if sol_x is not None else None
 
-        if self.refinement and solution is not None:
-            solution = self._apply_refinement(solution)
+                duration = perf_counter() - start_time
+                success = solution is not None
+                cost = 0.0
+                
+                if success and solution is not None:
+                    if self.refinement:
+                        solution = self._apply_refinement(solution)
+                    
+                    self.set_x(solution)
+                    cost = self.get_cost()
+                    
+                    if cost < overall_best_cost:
+                        overall_best_cost = cost
+                        overall_best_solution = solution.copy()
+                    
+                    self._handle_success(solution)
 
-        if solution is not None:
-            self._handle_success(solution)
-        else:
-            logger.error("No valid solution found.")
+                self.results.append({
+                    'Algorithm': alg_name,
+                    'Attempt': attempt,
+                    'Success': "YES" if success else "NO",
+                    'Time (s)': f"{duration:.2f}",
+                    'Simulations': self.simulation_cycles,
+                    'Cost': f"{cost:.2f}" if success else "-"
+                })
 
-        logger.info(f"Duration: {perf_counter() - start_time:.2f}s")
-        return solution
+                if success:
+                    break  # Stop retrying if successful
+
+        self._print_summary()
+        
+        if overall_best_solution is not None:
+            self.set_x(overall_best_solution)
+        
+        return overall_best_solution
+
+    def _print_summary(self) -> None:
+        """Displays a summary of all optimization runs."""
+        logger.info("\n" + "=" * 80)
+        logger.info(f"{'ALGORITHM SUMMARY':^80}")
+        logger.info("=" * 80)
+        header = f"{'Algorithm':<12} {'Try':<5} {'Success':<8} {'Time(s)':>10} {'Sims':>10} {'Cost':>15}"
+        logger.info(header)
+        logger.info("-" * 80)
+        
+        for res in self.results:
+            row = (f"{res['Algorithm']:<12} {res['Attempt']:<5} {res['Success']:<8} "
+                   f"{res['Time (s)']:>10} {res['Simulations']:>10} {res['Cost']:>15}")
+            logger.info(row)
+        logger.info("=" * 80 + "\n")
 
     def _solve_uh(self) -> Optional[np.ndarray]:
         """Unit Headloss Heuristic logic."""
@@ -295,36 +375,6 @@ class Optimization:
             if not expanded:
                 return None
 
-    def _solve_scipy(self) -> Optional[np.ndarray]:
-        """SciPy optimization wrapper."""
-        bounds = list(zip(self.lbound, self.ubound))
-
-        def objective(x_params):
-            self.set_x(np.round(x_params).astype(np.int32))
-            return self.get_cost() if self.check(mode='TF') else PENALTY_VALUE
-
-        if self.algorithm == ALGORITHM_DE:
-            from scipy.optimize import differential_evolution
-            logger.info("*** DIFFERENTIAL EVOLUTION ***")
-            result = differential_evolution(objective, bounds)
-        elif self.algorithm == ALGORITHM_DA:
-            from scipy.optimize import dual_annealing
-            logger.info("*** DUAL ANNEALING ***")
-            result = dual_annealing(objective, bounds)
-        elif self.algorithm == ALGORITHM_SHGO:
-            from scipy.optimize import shgo
-            logger.info("*** SHGO ***")
-            result = shgo(objective, bounds)
-        elif self.algorithm == ALGORITHM_DIRECT:
-            from scipy.optimize import direct
-            logger.info("*** DIRECT ***")
-            result = direct(objective, bounds)
-        else:
-            return None
-
-        final_x = np.round(result.x).astype(np.int32)
-        self.set_x(final_x)
-        return final_x if self.check(mode='TF') else None
 
     def _apply_refinement(self, solution: np.ndarray) -> np.ndarray:
         """Manual refinement to reduce diameters of non-critical pipes."""
@@ -362,7 +412,7 @@ class Optimization:
             ALGORITHM_MOEAD: 'MOEAD',
             ALGORITHM_MACO: 'MACO',
             ALGORITHM_PSO: 'PSO'
-        }[self.algorithm]
+        }.get(self.algorithm, 'UNKNOWN')
         out_path = self.inp_file.parent / (self.inp_file.stem + f"_Solved_{alg_name}.inp")
         et.ENsaveinpfile(str(out_path))
         logger.info(f"Optimized model saved to: {out_path}")

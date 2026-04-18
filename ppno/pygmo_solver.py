@@ -1,7 +1,7 @@
-"""Optimization module using Genetic Algorithms (NSGA-II) via PyGMO.
+"""Optimization module using various algorithms via PyGMO.
 
 This module adapts the PPNO problem to the PyGMO framework for multi-objective
-optimization, focusing on cost minimization and pressure constraint satisfaction.
+optimization, supporting algorithms like NSGA-II, MOEAD, MACO, and PSO.
 """
 
 import logging
@@ -19,7 +19,7 @@ GENERATIONS_PER_TRIAL = 100
 POPULATION_SIZE = 100
 MAX_TRIALS = 250
 MAX_NO_CHANGES = 10
-MAX_TIME_SECONDS = 10 * 60
+MAX_TIME_SECONDS = 180
 
 
 class PPNOProblem:

@@ -7,7 +7,7 @@ Hanoi example by Fujiwara and Khang, Water Resources Research, 1990
 
 [OPTIONS]
 
-Algorithm UH   ; Available: UH, DE, DA, SHGO, DIRECT, NSGA2, MOEAD, MACO, PSO
+Algorithm UH DE DA DIRECT NSGA2 MOEAD MACO PSO   ; Runs all available algorithms
 Refinement NO     ; Refinement will make a slight final improvement, YES/NO
 
 [PIPES]
