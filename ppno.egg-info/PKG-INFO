@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ppno
-Version: 0.4.0
+Version: 0.3.2
 Summary: Pressurized Pipe Network Optimizer
 Home-page: https://github.com/andresgciamtez/ppno
 Author: Andrés García Martínez
@@ -29,7 +29,7 @@ Dynamic: requires-python
 2019-2026 - Andrés García Martínez (ppnoptimizer@gmail.com)
 Licensed under the Apache License 2.0. http://www.apache.org/licenses/
 
-## VERSION 0.4.0
+## VERSION 0.3.1
 Modernized version with multi-algorithm support, automatic retries, and enhanced EPANET 2.2 integration.
 
 ---

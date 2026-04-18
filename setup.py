@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='ppno',
-    version='0.3.1',
+    version='0.3.2',
     description='Pressurized Pipe Network Optimizer',
     long_description=open('README.md', encoding="utf8").read(),
     long_description_content_type='text/markdown',

@@ -95,6 +95,14 @@ def evolve_ppno(optimization_instance: Any,
     logger.info(f'*** {name} OPTIMIZATION ***')
 
     start_time = perf_counter()
+    
+    # Calculate how many simulation cycles occur per evaluation (number of time steps)
+    # This is needed because PyGMO's internal copies of the instance don't update this one.
+    initial_cycles = optimization_instance.simulation_cycles
+    optimization_instance.check(mode='TF')
+    cycles_per_eval = max(1, optimization_instance.simulation_cycles - initial_cycles)
+    optimization_instance.simulation_cycles = 0  # Reset for the actual optimization
+
     prob = pg.problem(PPNOProblem(optimization_instance))
 
     total_generations = 0
@@ -141,7 +149,8 @@ def evolve_ppno(optimization_instance: Any,
 
         # Progress logging
         if best_valid_fitness:
-            logger.info(f"Gen: {total_generations:5} | Best Cost: {best_valid_fitness[0]:12.2f} | Max Deficit: {best_valid_fitness[1]:6.3f}")
+            current_sims = prob.get_fevals() * cycles_per_eval
+            logger.info(f"Gen: {total_generations:5} | Sims: {current_sims:6} | Best Cost: {best_valid_fitness[0]:12.2f} | Max Deficit: {best_valid_fitness[1]:6.3f}")
 
         # Stopping criteria check
         elapsed_time = perf_counter() - start_time
@@ -154,6 +163,9 @@ def evolve_ppno(optimization_instance: Any,
         if consecutive_no_changes >= MAX_NO_CHANGES:
             logger.info(f"Terminated: Converged after {consecutive_no_changes} trials without improvement.")
             break
+
+    # Final sync of simulation cycles back to the main instance
+    optimization_instance.simulation_cycles = prob.get_fevals() * cycles_per_eval
 
     return best_valid_fitness, best_valid_x
 
