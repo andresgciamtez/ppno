@@ -103,7 +103,6 @@ Calculation options.
     - `UH`: **Unit Headloss Heuristic**. Simple and fast heuristic that increases diameters based on maximum headloss (Internal).
     - `DE`: **Differential Evolution**. Robust global optimization from **SciPy**.
     - `DA`: **Dual Annealing**. Efficient global optimization for large spaces from **SciPy**.
-    - `SHGO`: **Simplicial Homology Global Optimization**. Deterministic algorithm, useful for constrained problems from **SciPy**.
     - `DIRECT`: **DIviding RECTangles**. Robust deterministic search algorithm from **SciPy**.
     - `NSGA2`: **Non-dominated Sorting Genetic Algorithm II**. Multi-objective approach via **PyGMO**.
     - `MOEAD`: **Multi-Objective Evolutionary Algorithm based on Decomposition**. Advanced multi-objective solver via **PyGMO**.

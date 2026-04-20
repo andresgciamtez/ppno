@@ -9,7 +9,7 @@ from typing import Optional
 from time import perf_counter
 import numpy as np
 from .constants import (
-    ALGORITHM_DE, ALGORITHM_DA, ALGORITHM_SHGO, ALGORITHM_DIRECT, 
+    ALGORITHM_DE, ALGORITHM_DA, ALGORITHM_DIRECT, 
     PENALTY_VALUE, MAX_ALGORITHM_TIME
 )
 
@@ -54,10 +54,6 @@ def solve_scipy(opt_instance, alg_id: int) -> Optional[np.ndarray]:
             from scipy.optimize import dual_annealing
             logger.info("*** DUAL ANNEALING ***")
             result = dual_annealing(objective, bounds)
-        elif alg_id == ALGORITHM_SHGO:
-            from scipy.optimize import shgo
-            logger.info("*** SHGO ***")
-            result = shgo(objective, bounds)
         elif alg_id == ALGORITHM_DIRECT:
             from scipy.optimize import direct
             logger.info("*** DIRECT ***")

@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 # Constants
 from .constants import (
     ALGORITHM_UH, ALGORITHM_DE, ALGORITHM_DA, ALGORITHM_NSGA2,
-    ALGORITHM_SHGO, ALGORITHM_DIRECT, ALGORITHM_MOEAD, ALGORITHM_MACO,
+    ALGORITHM_DIRECT, ALGORITHM_MOEAD, ALGORITHM_MACO,
     ALGORITHM_PSO, PENALTY_VALUE, MAX_RETRIES
 )
 
@@ -109,7 +109,6 @@ class Optimization:
             'DE': ALGORITHM_DE, 
             'DA': ALGORITHM_DA, 
             'NSGA2': ALGORITHM_NSGA2, 
-            'SHGO': ALGORITHM_SHGO, 
             'DIRECT': ALGORITHM_DIRECT,
             'MOEAD': ALGORITHM_MOEAD,
             'MACO': ALGORITHM_MACO,
@@ -203,7 +202,7 @@ class Optimization:
         Returns:
             Depending on mode: bool, (bool, np.ndarray), or np.ndarray.
         """
-        deficits = np.full(len(self.nodes), np.inf, dtype=np.float32) if mode == 'PD' else None
+        deficits = np.full(len(self.nodes), -1e10, dtype=np.float32) if mode == 'PD' else None
         max_hls = np.zeros(len(self.pipes), dtype=np.float32) if mode == 'UH' else None
         overall_status = True
 
@@ -222,7 +221,7 @@ class Optimization:
                     overall_status = False
 
                 if mode == 'PD' and deficits is not None:
-                    if deficits[i] > deficit:
+                    if deficits[i] < deficit:
                         deficits[i] = deficit
 
             # Track link headlosses for UH mode
@@ -264,7 +263,6 @@ class Optimization:
             ALGORITHM_DE: 'DE', 
             ALGORITHM_DA: 'DA', 
             ALGORITHM_NSGA2: 'NSGA2',
-            ALGORITHM_SHGO: 'SHGO',
             ALGORITHM_DIRECT: 'DIRECT',
             ALGORITHM_MOEAD: 'MOEAD',
             ALGORITHM_MACO: 'MACO',
@@ -287,7 +285,7 @@ class Optimization:
                 solution = None
                 if alg_id == ALGORITHM_UH:
                     solution = self._solve_uh()
-                elif alg_id in [ALGORITHM_DE, ALGORITHM_DA, ALGORITHM_SHGO, ALGORITHM_DIRECT]:
+                elif alg_id in [ALGORITHM_DE, ALGORITHM_DA, ALGORITHM_DIRECT]:
                     from . import scipy_solver
                     solution = scipy_solver.solve_scipy(self, alg_id)
                 elif alg_id in [ALGORITHM_NSGA2, ALGORITHM_MOEAD, ALGORITHM_MACO, ALGORITHM_PSO]:
@@ -408,7 +406,6 @@ class Optimization:
             ALGORITHM_DE: 'DE', 
             ALGORITHM_DA: 'DA', 
             ALGORITHM_NSGA2: 'NSGA2',
-            ALGORITHM_SHGO: 'SHGO',
             ALGORITHM_DIRECT: 'DIRECT',
             ALGORITHM_MOEAD: 'MOEAD',
             ALGORITHM_MACO: 'MACO',
