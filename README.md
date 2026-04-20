@@ -67,7 +67,7 @@ ppno <problem_file.ext>
 ### Try an Example
 You can test the installation using one of the provided example problems:
 ```powershell
-ppno ppno/examples/Example1.ext
+ppno ppno/examples/example_1.ext
 ```
 
 ### What happens during a run?
@@ -86,7 +86,7 @@ Optional description of the problem.
 Example:
 ```ini
 [TITLE]
-Hanoi example by Fujiwara and Khang, 1990
+Optimization of the Hanoi Network (Fujiwara & Khang, 1990)
 ```
 
 ### [INP]

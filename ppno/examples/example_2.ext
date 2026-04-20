@@ -1,12 +1,12 @@
 [TITLE]
-Balerma Irrigation Network. Almería (Spain)
+Optimization of the Balerma Irrigation Network (Reca & MartÃ­nez, 2006)
 
 [INP]
 ;Epanet inp file
 ./examples/BIN.inp
 
 [OPTIONS]
-Algorithm UH DE DA DIRECT NSGA2 MOEAD MACO PSO ; Available: UH, DE, DA, SHGO, DIRECT, NSGA2, MOEAD, MACO, PSO
+Algorithm UH DE DA SHGO DIRECT NSGA2 MOEAD MACO PSO ; Available: UH, DE, DA, SHGO, DIRECT, NSGA2, MOEAD, MACO, PSO
 Refinement NO    ; Refinement will make a slight final improvement, YES/NO
 
 [PIPES]

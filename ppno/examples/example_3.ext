@@ -1,12 +1,12 @@
 [TITLE]
- New York example by Murphy, Simpson and Dandy Res.Rep. No. R109. Dec. 1993
+Optimization of the New York Network (Murphy, Simpson & Dandy, 1993)
 
 [INP]
 ;Epanet inp file
 ./examples/NYT.inp
 
 [OPTIONS]
-Algorithm UH DE DA DIRECT NSGA2 MOEAD MACO PSO   ; Runs all available algorithms
+Algorithm UH DE DA SHGO DIRECT NSGA2 MOEAD MACO PSO   ; Runs all available algorithms
 Refinement NO    ; Refinement will make a slight final improvement, YES/NO
 
 [PIPES]

@@ -1,5 +1,5 @@
 [TITLE]
-Hanoi example by Fujiwara and Khang, Water Resources Research, 1990
+Optimization of the Hanoi Network (Fujiwara & Khang, 1990)
 
 [INP]
 ;Epanet inp file
@@ -7,7 +7,7 @@ Hanoi example by Fujiwara and Khang, Water Resources Research, 1990
 
 [OPTIONS]
 
-Algorithm UH DE DA DIRECT NSGA2 MOEAD MACO PSO   ; Runs all available algorithms
+Algorithm UH DE DA SHGO DIRECT NSGA2 MOEAD MACO PSO   ; Runs all available algorithms
 Refinement NO     ; Refinement will make a slight final improvement, YES/NO
 
 [PIPES]

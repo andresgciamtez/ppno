@@ -8,10 +8,13 @@ import logging
 from typing import Optional
 from time import perf_counter
 import numpy as np
-from .constants import ALGORITHM_DE, ALGORITHM_DA, ALGORITHM_SHGO, ALGORITHM_DIRECT, PENALTY_VALUE
+from .constants import (
+    ALGORITHM_DE, ALGORITHM_DA, ALGORITHM_SHGO, ALGORITHM_DIRECT, 
+    PENALTY_VALUE, MAX_ALGORITHM_TIME
+)
 
 # Configuration
-MAX_SCIPY_TIME = 60
+
 
 # Logger configuration
 logger = logging.getLogger(__name__)
@@ -36,8 +39,8 @@ def solve_scipy(opt_instance, alg_id: int) -> Optional[np.ndarray]:
     start_time = perf_counter()
 
     def objective(x_params):
-        if perf_counter() - start_time > MAX_SCIPY_TIME:
-            raise SolverTimeoutError(f"Time limit of {MAX_SCIPY_TIME}s reached.")
+        if perf_counter() - start_time > MAX_ALGORITHM_TIME:
+            raise SolverTimeoutError(f"Time limit of {MAX_ALGORITHM_TIME}s reached.")
         
         opt_instance.set_x(np.round(x_params).astype(np.int32))
         return opt_instance.get_cost() if opt_instance.check(mode='TF') else PENALTY_VALUE

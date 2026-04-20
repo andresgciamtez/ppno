@@ -15,12 +15,11 @@ ppno.egg-info/dependency_links.txt
 ppno.egg-info/entry_points.txt
 ppno.egg-info/requires.txt
 ppno.egg-info/top_level.txt
-ppno/examples/1_HAN.ext
-ppno/examples/1_han.ext
-ppno/examples/2_bin.ext
-ppno/examples/3_nyt.ext
 ppno/examples/BIN.inp
 ppno/examples/HAN.inp
 ppno/examples/NYT.inp
+ppno/examples/example_1.ext
+ppno/examples/example_2.ext
+ppno/examples/example_3.ext
 tests/test_section_parser.py
 tests/test_toolkit.py

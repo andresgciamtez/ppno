@@ -10,6 +10,7 @@ from typing import Tuple, Optional, List, Any
 
 import numpy as np
 import pygmo as pg
+from .constants import MAX_ALGORITHM_TIME
 
 # Logger configuration
 logger = logging.getLogger(__name__)
@@ -18,8 +19,8 @@ logger = logging.getLogger(__name__)
 GENERATIONS_PER_TRIAL = 100
 POPULATION_SIZE = 100
 MAX_TRIALS = 250
-MAX_NO_CHANGES = 10
-MAX_TIME_SECONDS = 180
+MAX_NO_CHANGES = 5
+
 
 
 class PPNOProblem:
@@ -154,7 +155,7 @@ def evolve_ppno(optimization_instance: Any,
 
         # Stopping criteria check
         elapsed_time = perf_counter() - start_time
-        if elapsed_time >= MAX_TIME_SECONDS:
+        if elapsed_time >= MAX_ALGORITHM_TIME:
             logger.warning("Terminated: Maximum time reached.")
             break
         if trials >= MAX_TRIALS:

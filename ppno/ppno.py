@@ -229,8 +229,9 @@ class Optimization:
             if mode == 'UH' and max_hls is not None:
                 for i in range(len(self.pipes)):
                     hl = et.ENgetlinkvalue(int(self.pipes[i]['link_idx']), et.EN_HEADLOSS)
-                    if max_hls[i] < hl:
-                        max_hls[i] = hl
+                    gradient = abs(hl) / float(self.pipes[i]['length'])
+                    if max_hls[i] < gradient:
+                        max_hls[i] = gradient
 
             if et.ENnextH() == 0:
                 break
