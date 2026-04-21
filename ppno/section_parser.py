@@ -32,13 +32,17 @@ class SectionParser:
             raise FileNotFoundError(f"Source file not found: {self.file_path}")
 
     def _get_lines(self) -> List[str]:
-        """Helper to read lines with encoding fallback (UTF-8, then CP1252)."""
-        try:
-            with self.file_path.open('r', encoding='utf-8') as f:
-                return f.readlines()
-        except UnicodeDecodeError:
-            with self.file_path.open('r', encoding='cp1252') as f:
-                return f.readlines()
+        """Helper to read lines with encoding fallback (UTF-8, UTF-16, CP1252)."""
+        encodings = ['utf-8', 'utf-16', 'cp1252']
+        for enc in encodings:
+            try:
+                with self.file_path.open('r', encoding=enc) as f:
+                    return f.readlines()
+            except (UnicodeDecodeError, UnicodeError):
+                continue
+        # If all fail, try one last time with 'latin-1' which never raises DecodeError
+        with self.file_path.open('r', encoding='latin-1') as f:
+            return f.readlines()
 
     def read_section(self, section_name: str) -> List[Tuple[str, ...]]:
         """Reads a specific section from the file.
@@ -54,17 +58,18 @@ class SectionParser:
         """
         extracted_data: List[Tuple[str, ...]] = []
         is_inside_target_section = False
-        target_header = f"[{section_name.upper()}]"
+        target_name = section_name.strip().upper()
 
         for line in self._get_lines():
                 clean_line = line.split(';')[0].strip()
                 if not clean_line:
                     continue
 
-                if clean_line.startswith('['):
+                if clean_line.startswith('[') and clean_line.endswith(']'):
+                    current_name = clean_line.strip('[] ').upper()
                     if is_inside_target_section:
                         break
-                    if clean_line.upper() == target_header:
+                    if current_name == target_name:
                         is_inside_target_section = True
                     continue
 
@@ -89,7 +94,7 @@ class SectionParser:
                     continue
 
                 if clean_line.startswith('[') and clean_line.endswith(']'):
-                    current_section_name = clean_line.strip('[]').upper()
+                    current_section_name = clean_line.strip('[] ').upper()
                     if current_section_name == 'END':
                         break
                     all_sections[current_section_name] = []

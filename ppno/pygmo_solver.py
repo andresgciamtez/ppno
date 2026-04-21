@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 GENERATIONS_PER_TRIAL = 100
 POPULATION_SIZE = 100
 MAX_TRIALS = 250
-MAX_NO_CHANGES = 5
+MAX_NO_CHANGES = 10
 
 
 
@@ -87,7 +87,8 @@ class PPNOProblem:
 
 def evolve_ppno(optimization_instance: Any, 
                 algorithm_factory: Any, 
-                name: str) -> Tuple[Optional[List[float]], Optional[np.ndarray]]:
+                name: str,
+                initial_x: Optional[np.ndarray] = None) -> Tuple[Optional[List[float]], Optional[np.ndarray]]:
     """Generic evolution loop for PyGMO algorithms.
     
     Evolves a population of solutions to find the best valid (max_deficit <= 0)
@@ -101,8 +102,9 @@ def evolve_ppno(optimization_instance: Any,
     # This is needed because PyGMO's internal copies of the instance don't update this one.
     initial_cycles = optimization_instance.simulation_cycles
     optimization_instance.check(mode='TF')
+    # We determine how many cycles occur per evaluation (e.g., number of time steps)
     cycles_per_eval = max(1, optimization_instance.simulation_cycles - initial_cycles)
-    optimization_instance.simulation_cycles = 0  # Reset for the actual optimization
+    # Note: pygmo copies the UDP, so we track evaluations through the pg.problem interface.
 
     prob = pg.problem(PPNOProblem(optimization_instance))
 
@@ -114,9 +116,28 @@ def evolve_ppno(optimization_instance: Any,
     best_valid_fitness: Optional[List[float]] = None
     best_valid_x: Optional[np.ndarray] = None
 
-    # Initialize algorithm and random population
+    # Initialize algorithm and population
     algorithm = pg.algorithm(algorithm_factory())
     population = pg.population(prob, size=POPULATION_SIZE)
+
+    # Seed population with the initial solution and feasible variations
+    if initial_x is not None:
+        logger.info(f"      [SEEDED] Injecting initial solution into {name} population.")
+        # Replace the first individual with the exact initial solution
+        population.set_x(0, initial_x)
+        
+        # Replace other individuals with variations
+        # We vary 5-10% of the variables for each individual to create diversity
+        n_vars = len(initial_x)
+        for i in range(1, min(10, POPULATION_SIZE)): # Seed first 10
+            variant = initial_x.copy()
+            n_change = max(1, int(n_vars * 0.05))
+            idx_change = np.random.choice(n_vars, n_change, replace=False)
+            for idx in idx_change:
+                variant[idx] = np.clip(variant[idx] + np.random.randint(-1, 2), 
+                                       optimization_instance.lbound[idx], 
+                                       optimization_instance.ubound[idx])
+            population.set_x(i, variant)
 
     while True:
         # Perform evolution step
@@ -148,10 +169,6 @@ def evolve_ppno(optimization_instance: Any,
         else:
             consecutive_no_changes += 1
 
-        # Progress logging
-        if best_valid_fitness:
-            current_sims = prob.get_fevals() * cycles_per_eval
-            logger.info(f"Gen: {total_generations:5} | Sims: {current_sims:6} | Best Cost: {best_valid_fitness[0]:12.2f} | Max Deficit: {best_valid_fitness[1]:6.3f}")
 
         # Stopping criteria check
         elapsed_time = perf_counter() - start_time
@@ -166,27 +183,27 @@ def evolve_ppno(optimization_instance: Any,
             break
 
     # Final sync of simulation cycles back to the main instance
-    optimization_instance.simulation_cycles = prob.get_fevals() * cycles_per_eval
+    optimization_instance.simulation_cycles = population.problem.get_fevals() * cycles_per_eval
 
     return best_valid_fitness, best_valid_x
 
 
-def nsga2(optimization_instance: Any) -> Tuple[Optional[List[float]], Optional[np.ndarray]]:
+def nsga2(optimization_instance: Any, initial_x: Optional[np.ndarray] = None) -> Tuple[Optional[List[float]], Optional[np.ndarray]]:
     """Runs the Non-dominated Sorting Genetic Algorithm II."""
-    return evolve_ppno(optimization_instance, lambda: pg.nsga2(gen=GENERATIONS_PER_TRIAL), "NSGA-II")
+    return evolve_ppno(optimization_instance, lambda: pg.nsga2(gen=GENERATIONS_PER_TRIAL), "NSGA-II", initial_x)
 
 
-def moead(optimization_instance: Any) -> Tuple[Optional[List[float]], Optional[np.ndarray]]:
+def moead(optimization_instance: Any, initial_x: Optional[np.ndarray] = None) -> Tuple[Optional[List[float]], Optional[np.ndarray]]:
     """Runs Multi-Objective Evolutionary Algorithm based on Decomposition."""
-    return evolve_ppno(optimization_instance, lambda: pg.moead(gen=GENERATIONS_PER_TRIAL), "MOEAD")
+    return evolve_ppno(optimization_instance, lambda: pg.moead(gen=GENERATIONS_PER_TRIAL), "MOEAD", initial_x)
 
 
-def maco(optimization_instance: Any) -> Tuple[Optional[List[float]], Optional[np.ndarray]]:
+def maco(optimization_instance: Any, initial_x: Optional[np.ndarray] = None) -> Tuple[Optional[List[float]], Optional[np.ndarray]]:
     """Runs Multi-objective Ant Colony Optimizer."""
-    return evolve_ppno(optimization_instance, lambda: pg.maco(gen=GENERATIONS_PER_TRIAL), "MACO")
+    return evolve_ppno(optimization_instance, lambda: pg.maco(gen=GENERATIONS_PER_TRIAL), "MACO", initial_x)
 
 
-def nspso(optimization_instance: Any) -> Tuple[Optional[List[float]], Optional[np.ndarray]]:
+def nspso(optimization_instance: Any, initial_x: Optional[np.ndarray] = None) -> Tuple[Optional[List[float]], Optional[np.ndarray]]:
     """Runs Non-dominated Sorting Particle Swarm Optimizer."""
-    return evolve_ppno(optimization_instance, lambda: pg.nspso(gen=GENERATIONS_PER_TRIAL), "NSP-SO (PSO)")
+    return evolve_ppno(optimization_instance, lambda: pg.nspso(gen=GENERATIONS_PER_TRIAL), "NSP-SO (PSO)", initial_x)
 

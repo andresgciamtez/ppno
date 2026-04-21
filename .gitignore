@@ -10,3 +10,6 @@ build/
 .pytest_cache/
 *.rpt
 *_Solved_*.inp
+
+# Logs
+example_*.txt

@@ -5,6 +5,7 @@ pyproject.toml
 setup.py
 ppno/__init__.py
 ppno/constants.py
+ppno/local_refiner.py
 ppno/ppno.py
 ppno/pygmo_solver.py
 ppno/scipy_solver.py
