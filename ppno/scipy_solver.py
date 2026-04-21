@@ -23,14 +23,28 @@ class SolverTimeoutError(Exception):
 
 
 def solve_scipy(opt_instance, alg_id: int, initial_x: Optional[np.ndarray] = None) -> Optional[np.ndarray]:
-    """Wraps SciPy global optimization algorithms.
+    """Wraps SciPy global optimization algorithms for pipe network optimization.
+
+    This function configures and executes SciPy's continuous global optimizers
+    (Differential Evolution, Dual Annealing, or DIRECT). Since these optimizers
+    work with continuous variables, the objective function automatically rounds
+    candidate vectors to the nearest integer index to map them to discrete catalog entries.
+
+    The objective function employs a guided penalty mechanism:
+    - If the solution is feasible, the true network cost is returned.
+    - If infeasible, a large constant penalty is added, plus an amount proportional
+      to the maximum pressure deficit. This gradient guides the optimizer towards 
+      feasible regions.
 
     Args:
-        opt_instance: An instance of the Optimization class.
-        alg_id: The specific SciPy algorithm to use.
+        opt_instance: An instance of the Optimization class providing bounds and evaluation methods.
+        alg_id: The specific SciPy algorithm identifier (ALGORITHM_DE, ALGORITHM_DA, ALGORITHM_DIRECT).
+        initial_x: An optional pre-computed feasible solution vector (e.g., from FLS-H)
+                   used to seed the initial population or starting point.
 
     Returns:
-        The optimized diameter index vector or None if failed.
+        Optional[np.ndarray]: The optimized discrete diameter index vector, or None 
+                              if the optimizer fails or times out.
     """
     bounds = list(zip(opt_instance.lbound, opt_instance.ubound))
     start_time = perf_counter()
@@ -84,6 +98,9 @@ def solve_scipy(opt_instance, alg_id: int, initial_x: Optional[np.ndarray] = Non
             # subdivides the search space from the center of the hypercube.
             result = direct(objective, bounds)
         else:
+            return None
+
+        if not result.success:
             return None
 
         final_x = np.round(result.x).astype(np.int32)

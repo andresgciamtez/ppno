@@ -44,23 +44,23 @@ class SectionParser:
         with self.file_path.open('r', encoding='latin-1') as f:
             return f.readlines()
 
-    def read_section(self, section_name: str) -> List[Tuple[str, ...]]:
+    def read_section(self, section_name: str) -> List[Tuple[int, Tuple[str, ...]]]:
         """Reads a specific section from the file.
 
         Extracts lines belonging to [section_name], splitting each line into a tuple
-        of strings and removing comments.
+        of strings and removing comments, preserving original line numbers.
 
         Args:
             section_name: Name of the section to read (case-insensitive).
 
         Returns:
-            A list of tuples, where each tuple contains words from a line in the section.
+            A list of tuples (line_number, split_content_tuple).
         """
-        extracted_data: List[Tuple[str, ...]] = []
+        extracted_data: List[Tuple[int, Tuple[str, ...]]] = []
         is_inside_target_section = False
         target_name = section_name.strip().upper()
 
-        for line in self._get_lines():
+        for i, line in enumerate(self._get_lines(), 1):
                 clean_line = line.split(';')[0].strip()
                 if not clean_line:
                     continue
@@ -74,21 +74,21 @@ class SectionParser:
                     continue
 
                 if is_inside_target_section:
-                    extracted_data.append(tuple(clean_line.split()))
+                    extracted_data.append((i, tuple(clean_line.split())))
 
         return extracted_data
 
-    def read(self) -> Dict[str, List[str]]:
+    def read(self) -> Dict[str, List[Tuple[int, str]]]:
         """Reads all sections from the file into a dictionary.
 
         Returns:
             A dictionary where keys are section names (in uppercase) and
-            values are lists of raw lines (excluding comments).
+            values are lists of (line_number, raw_line_content) tuples.
         """
-        all_sections: Dict[str, List[str]] = {}
+        all_sections: Dict[str, List[Tuple[int, str]]] = {}
         current_section_name = None
 
-        for line in self._get_lines():
+        for i, line in enumerate(self._get_lines(), 1):
                 clean_line = line.split(';')[0].strip()
                 if not clean_line:
                     continue
@@ -99,7 +99,7 @@ class SectionParser:
                         break
                     all_sections[current_section_name] = []
                 elif current_section_name:
-                    all_sections[current_section_name].append(clean_line)
+                    all_sections[current_section_name].append((i, clean_line))
 
         return all_sections
 
@@ -113,7 +113,8 @@ class SectionParser:
         Returns:
             A tuple of strings.
         """
-        return tuple(word.strip() for word in line.split())
+        import re
+        return tuple(word.strip() for word in re.split(r'[\s\t,]+', line) if word.strip())
 
     @staticmethod
     def tuple_to_line(data_tuple: Tuple[Union[str, float, int], ...], separator: str = '    ') -> str:

@@ -22,5 +22,11 @@ ppno/examples/NYT.inp
 ppno/examples/example_1.ext
 ppno/examples/example_2.ext
 ppno/examples/example_3.ext
+tests/test_constants.py
+tests/test_coverage_completion.py
+tests/test_local_refiner.py
+tests/test_ppno_core.py
+tests/test_pygmo_solver.py
+tests/test_scipy_solver.py
 tests/test_section_parser.py
 tests/test_toolkit.py

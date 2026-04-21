@@ -9,7 +9,10 @@ from time import perf_counter
 from typing import Tuple, Optional, List, Any
 
 import numpy as np
-import pygmo as pg
+try:
+    import pygmo as pg
+except ImportError:
+    pg = None
 from .constants import MAX_ALGORITHM_TIME
 
 # Logger configuration
@@ -54,7 +57,7 @@ class PPNOProblem:
         Returns:
             List containing [cost, max_deficit].
         """
-        diameter_indexes = x.astype(np.int32)
+        diameter_indexes = np.array(x).astype(np.int32)
         self.optimization_instance.set_x(diameter_indexes)
 
         # Objective 1: Investment Cost
@@ -92,7 +95,24 @@ def evolve_ppno(optimization_instance: Any,
     """Generic evolution loop for PyGMO algorithms.
     
     Evolves a population of solutions to find the best valid (max_deficit <= 0)
-    solution with the minimum cost.
+    solution with the minimum cost. This loop handles the multi-objective nature
+    of the problem (Cost vs. Feasibility).
+
+    Seeding Strategy:
+        If `initial_x` is provided, the initial population is seeded. The first
+        individual becomes the exact initial solution. A subset of the population 
+        is then filled with mutated variations of this initial solution (changing 
+        ~5% of pipes) to provide genetic diversity around a known good region.
+
+    Args:
+        optimization_instance: The main Optimization object.
+        algorithm_factory: A callable returning a PyGMO algorithm instance.
+        name: The human-readable name of the algorithm (for logging).
+        initial_x: Optional starting solution vector.
+
+    Returns:
+        A tuple containing (Best Fitness [Cost, Deficit], Best Solution Vector)
+        or (None, None) if the optimization fails or finds no valid solutions.
     """
     logger.info(f'*** {name} OPTIMIZATION ***')
 
@@ -100,10 +120,10 @@ def evolve_ppno(optimization_instance: Any,
     
     # Calculate how many simulation cycles occur per evaluation (number of time steps)
     # This is needed because PyGMO's internal copies of the instance don't update this one.
-    initial_cycles = optimization_instance.simulation_cycles
+    initial_cycles = int(optimization_instance.simulation_cycles)
     optimization_instance.check(mode='TF')
     # We determine how many cycles occur per evaluation (e.g., number of time steps)
-    cycles_per_eval = max(1, optimization_instance.simulation_cycles - initial_cycles)
+    cycles_per_eval = max(1, int(optimization_instance.simulation_cycles) - initial_cycles)
     # Note: pygmo copies the UDP, so we track evaluations through the pg.problem interface.
 
     prob = pg.problem(PPNOProblem(optimization_instance))
@@ -140,9 +160,15 @@ def evolve_ppno(optimization_instance: Any,
             population.set_x(i, variant)
 
     while True:
-        # Perform evolution step
-        population = algorithm.evolve(population)
-        trials += 1
+        try:
+            population = algorithm.evolve(population)
+        except Exception as e:
+            logger.error(f"  FAILED: {e}")
+            trials += 1
+            if trials >= MAX_TRIALS:
+                logger.warning("Terminated: Maximum trials reached.")
+                break
+            continue
         total_generations += GENERATIONS_PER_TRIAL
 
         # Search for the best valid solution in the current population

@@ -53,14 +53,14 @@ class Optimization:
     """
 
     def __init__(self, problem_file: Union[str, Path]):
-        """Initializes the optimization problem.
+        """Initializes the optimization problem and performs full validation.
 
         Args:
             problem_file: Path to the .ext file containing problem data.
 
         Raises:
             FileNotFoundError: If the problem or input files are missing.
-            ValueError: If mandatory sections are missing in the problem file.
+            ValueError: If configuration validation fails (syntax, existence, or logic).
         """
         self.problem_file = Path(problem_file)
         if not self.problem_file.exists():
@@ -69,32 +69,44 @@ class Optimization:
         parser = sp.SectionParser(self.problem_file)
         sections = parser.read()
 
+        # 1. Verify INP Section
         if 'INP' not in sections or not sections['INP']:
-            raise ValueError("The [INP] section is missing or empty in the .ext file.")
-        inp_path = Path(sections['INP'][0])
+            raise ValueError(f"Line 1: Mandatory [INP] section is missing or empty in {self.problem_file.name}")
+        
+        inp_line_num, inp_raw_path = sections['INP'][0]
+        inp_path = Path(inp_raw_path)
         if not inp_path.exists():
             # If not found at the specified path, try relative to the .ext file (only filename)
             inp_path = self.problem_file.parent / inp_path.name
             
+        if not inp_path.exists():
+             raise FileNotFoundError(f"Line {inp_line_num}: EPANET INP file not found: {inp_raw_path}")
+
         self.inp_file = inp_path
         self.rpt_file = self.inp_file.with_suffix('.rpt')
         self.report_enabled = False
         self.algorithm = ALGORITHM_UH
 
-        self._load_options(sections.get('OPTIONS', []), parser)
-
-        logger.info(f"Loading optimization problem: {self.problem_file}")
-        # Use os.devnull instead of "" to prevent EPANET from writing to the console
-        rpt = str(self.rpt_file) if self.report_enabled else os.devnull
-        et.ENopen(str(self.inp_file), rpt)
-        et.ENopenH()
-        
-        # Explicitly silence engine status reports
+        # 2. Open Toolkit for entity validation
+        rpt = os.devnull
         try:
-            et.ENsetstatusreport(0)  # EN_NO_REPORT
+            et.ENopen(str(self.inp_file), rpt)
+        except Exception as e:
+            raise ValueError(f"Line {inp_line_num}: Failed to load EPANET model {self.inp_file.name} ({str(e)})")
+        
+        et.ENopenH()
+        try:
+            et.ENsetstatusreport(0)
         except Exception:
             pass
 
+        # 3. Comprehensive Validation
+        self._validate_config(sections, parser)
+
+        # 4. Load Data
+        self._load_options(sections.get('OPTIONS', []), parser)
+
+        logger.info(f"Loading optimization problem: {self.problem_file}")
         logger.info("-" * 80)
         logger.info(f"NETWORK DATA: {self.inp_file}")
 
@@ -104,7 +116,6 @@ class Optimization:
 
         self.dimension = len(self.pipes)
         self._current_x = np.zeros(self.dimension, dtype=np.int32)
-
         self.lbound = np.zeros(self.dimension, dtype=np.int32)
         self.ubound = np.array([len(self.catalog[str(p['series'])]) - 1 for p in self.pipes], dtype=np.int32)
         
@@ -112,7 +123,81 @@ class Optimization:
         self.results = []
         logger.info("-" * 80)
 
-    def _load_options(self, options_lines: List[str], parser: sp.SectionParser) -> None:
+    def _validate_config(self, sections: Dict[str, List[Tuple[int, str]]], parser: sp.SectionParser) -> None:
+        """Performs semantic validation of the configuration."""
+        errors = []
+        
+        # Check Algorithms
+        alg_map = {'UH', 'DE', 'DA', 'NSGA2', 'DIRECT', 'MOEAD', 'MACO', 'PSO'}
+        options = sections.get('OPTIONS', [])
+        for line_num, content in options:
+            tokens = parser.line_to_tuple(content)
+            if not tokens: continue
+            tokens = [t for t in tokens if t != '=']
+            key = tokens[0].upper().replace('_', '')
+            if key in ['ALGORITHM', 'ALGORITHMS']:
+                for val in tokens[1:]:
+                    if val.upper() not in alg_map:
+                        errors.append(f"Line {line_num}: Unknown algorithm '{val}'")
+
+        # Check Pipes Existence and Series
+        pipes_lines = sections.get('PIPES', [])
+        catalog_names = set()
+        for _, content in sections.get('CATALOG', []):
+            tokens = parser.line_to_tuple(content)
+            if tokens: catalog_names.add(tokens[0])
+
+        for line_num, content in pipes_lines:
+            tokens = parser.line_to_tuple(content)
+            if len(tokens) < 2:
+                errors.append(f"Line {line_num}: Invalid pipe definition. Expected 'ID SERIES'")
+                continue
+            pipe_id, series_name = tokens[0], tokens[1]
+            try:
+                et.ENgetlinkindex(pipe_id)
+            except Exception:
+                errors.append(f"Line {line_num}: Pipe '{pipe_id}' not found in hydraulic model")
+            
+            if series_name not in catalog_names:
+                errors.append(f"Line {line_num}: Catalog series '{series_name}' not defined in [CATALOG]")
+
+        # Check Nodes and Pressures
+        pressures_lines = sections.get('PRESSURES', [])
+        for line_num, content in pressures_lines:
+            tokens = parser.line_to_tuple(content)
+            if len(tokens) < 2:
+                errors.append(f"Line {line_num}: Invalid pressure definition. Expected 'ID MIN_PRESSURE'")
+                continue
+            node_id, min_p = tokens[0], tokens[1]
+            try:
+                et.ENgetnodeindex(node_id)
+            except Exception:
+                errors.append(f"Line {line_num}: Node '{node_id}' not found in hydraulic model")
+            try:
+                float(min_p)
+            except ValueError:
+                errors.append(f"Line {line_num}: Invalid pressure value '{min_p}'")
+
+        # Check Catalog Consistency (Strictly Increasing Diameter)
+        temp_cat = {}
+        for line_num, content in sections.get('CATALOG', []):
+            tokens = parser.line_to_tuple(content)
+            if len(tokens) < 4: continue
+            sn, d, r, p = tokens[0], float(tokens[1]), float(tokens[2]), float(tokens[3])
+            if sn not in temp_cat: temp_cat[sn] = []
+            temp_cat[sn].append({'d': d, 'p': p, 'line': line_num})
+
+        for sn, items in temp_cat.items():
+            for i in range(1, len(items)):
+                if items[i]['d'] <= items[i-1]['d']:
+                    errors.append(f"Line {items[i]['line']}: Diameter must be strictly increasing in series '{sn}'")
+                if items[i]['p'] <= items[i-1]['p']:
+                     logger.warning(f"Line {items[i]['line']}: Price {items[i]['p']} is not greater than {items[i-1]['p']} for larger diameter (Anomalous)")
+
+        if errors:
+            raise ValueError("Configuration Validation Failed:\n" + "\n".join(errors))
+
+    def _load_options(self, options_lines: List[Tuple[int, str]], parser: sp.SectionParser) -> None:
         """Parses the OPTIONS section."""
         self.algorithms = []  # Stage 2 metaheuristics; empty = only UH + FLS-H
         self.max_retries = MAX_RETRIES
@@ -127,17 +212,20 @@ class Optimization:
             'PSO': ALGORITHM_PSO
         }
 
-        for line in options_lines:
-            tokens = parser.line_to_tuple(line)
+        for line_num, content in options_lines:
+            tokens = parser.line_to_tuple(content)
             if not tokens:
                 continue
             
-            key = tokens[0].upper()
+            # Filter out '=' if present
+            tokens = [t for t in tokens if t != '=']
+            if not tokens:
+                continue
+
+            key = tokens[0].upper().replace('_', '') # Normalize: remove underscores
             values = tokens[1:]
 
-            if key == 'ALGORITHM' and values:
-                # In the new logic, ALGORITHM only contains Stage 2 metaheuristics.
-                # UH and LS are now mandatory internal stages.
+            if key in ['ALGORITHM', 'ALGORITHMS'] and values:
                 self.algorithms = [alg_map.get(v.upper(), None) for v in values]
                 self.algorithms = [a for a in self.algorithms if a is not None and a != ALGORITHM_UH]
                 logger.info(f"Optional Metaheuristics: {', '.join(values)}")
@@ -145,17 +233,18 @@ class Optimization:
                 if values:
                     self.max_retries = int(values[0])
                     logger.info(f"Max Retries: {self.max_retries}")
-            elif key == 'REPORT':
+            elif key in ['REPORT', 'GENERATERPT', 'REPORTFILE']:
                 if values:
-                    self.report_enabled = values[0].upper() in ['YES', 'Y']
+                    self.report_enabled = values[0].upper() in ['YES', 'Y', 'TRUE']
                     logger.info(f"Generate RPT File: {self.report_enabled}")
 
-    def _load_pipes(self, pipe_lines: List[str], parser: sp.SectionParser) -> None:
+    def _load_pipes(self, pipe_lines: List[Tuple[int, str]], parser: sp.SectionParser) -> None:
         """Parses the PIPES section."""
         dt = np.dtype([('link_idx', 'i4'), ('id', 'U16'), ('length', 'f4'), ('series', 'U16')])
         data = []
-        for line in pipe_lines:
-            pipe_id, series_name = parser.line_to_tuple(line)
+        for line_num, content in pipe_lines:
+            tokens = parser.line_to_tuple(content)
+            pipe_id, series_name = tokens[0], tokens[1]
             link_idx = et.ENgetlinkindex(pipe_id)
             length = et.ENgetlinkvalue(link_idx, et.EN_LENGTH)
             data.append((link_idx, pipe_id, length, series_name))
@@ -163,26 +252,28 @@ class Optimization:
         self.pipes = np.array(data, dt)
         logger.info(f"Loaded {len(self.pipes)} pipes for sizing.")
 
-    def _load_pressures(self, pressure_lines: List[str], parser: sp.SectionParser) -> None:
+    def _load_pressures(self, pressure_lines: List[Tuple[int, str]], parser: sp.SectionParser) -> None:
         """Parses the PRESSURES section."""
         dt = np.dtype([('node_idx', 'i4'), ('id', 'U16'), ('min_pressure', 'f4')])
         data = []
-        for line in pressure_lines:
-            node_id, min_p = parser.line_to_tuple(line)
+        for line_num, content in pressure_lines:
+            tokens = parser.line_to_tuple(content)
+            node_id, min_p = tokens[0], tokens[1]
             node_idx = et.ENgetnodeindex(node_id)
             data.append((node_idx, node_id, float(min_p)))
 
         self.nodes = np.array(data, dtype=dt)
         logger.info(f"Loaded {len(self.nodes)} pressure constraints.")
 
-    def _load_catalog(self, catalog_lines: List[str], parser: sp.SectionParser) -> None:
+    def _load_catalog(self, catalog_lines: List[Tuple[int, str]], parser: sp.SectionParser) -> None:
         """Parses the CATALOG section."""
         dt = np.dtype([('diameter', 'f4'), ('roughness', 'f4'), ('price', 'f4')])
         required_series = set(str(p['series']) for p in self.pipes)
 
         raw_data: Dict[str, List[Tuple[float, float, float]]] = {s: [] for s in required_series}
-        for line in catalog_lines:
-            sn, d, r, p = parser.line_to_tuple(line)
+        for line_num, content in catalog_lines:
+            tokens = parser.line_to_tuple(content)
+            sn, d, r, p = tokens[0], tokens[1], tokens[2], tokens[3]
             if sn in required_series:
                 raw_data[sn].append((float(d), float(r), float(p)))
 
@@ -200,8 +291,11 @@ class Optimization:
             series = self.catalog[str(pipe['series'])]
             size_idx = int(self._current_x[i])
 
-            et.ENsetlinkvalue(link_idx, et.EN_DIAMETER, float(series[size_idx]['diameter']))
-            et.ENsetlinkvalue(link_idx, et.EN_ROUGHNESS, float(series[size_idx]['roughness']))
+            try:
+                et.ENsetlinkvalue(link_idx, et.EN_DIAMETER, float(series[size_idx]['diameter']))
+                et.ENsetlinkvalue(link_idx, et.EN_ROUGHNESS, float(series[size_idx]['roughness']))
+            except Exception:
+                pass
 
     def get_x(self) -> np.ndarray:
         """Returns a copy of the current vector of diameter indexes."""
@@ -221,34 +315,37 @@ class Optimization:
         max_hls = np.zeros(len(self.pipes), dtype=np.float32) if mode == 'UH' else None
         overall_status = True
 
-        et.ENinitH(0)
-        while True:
-            et.ENrunH()
-            self.simulation_cycles += 1
+        try:
+            et.ENinitH(0)
+            while True:
+                et.ENrunH()
+                self.simulation_cycles += 1
 
-            # Check nodal pressures
-            for i, node in enumerate(self.nodes):
-                calculated_p = et.ENgetnodevalue(int(node['node_idx']), et.EN_PRESSURE)
-                required_p = float(node['min_pressure'])
-                deficit = required_p - calculated_p
+                # Check nodal pressures
+                for i, node in enumerate(self.nodes):
+                    calculated_p = et.ENgetnodevalue(int(node['node_idx']), et.EN_PRESSURE)
+                    required_p = float(node['min_pressure'])
+                    deficit = required_p - calculated_p
 
-                if deficit > 0:
-                    overall_status = False
+                    if deficit > 0:
+                        overall_status = False
 
-                if mode == 'PD' and deficits is not None:
-                    if deficits[i] < deficit:
-                        deficits[i] = deficit
+                    if mode == 'PD' and deficits is not None:
+                        if deficits[i] < deficit:
+                            deficits[i] = deficit
 
-            # Track link headlosses for UH mode
-            if mode == 'UH' and max_hls is not None:
-                for i in range(len(self.pipes)):
-                    hl = et.ENgetlinkvalue(int(self.pipes[i]['link_idx']), et.EN_HEADLOSS)
-                    gradient = abs(hl) / float(self.pipes[i]['length'])
-                    if max_hls[i] < gradient:
-                        max_hls[i] = gradient
+                # Track link headlosses for UH mode
+                if mode == 'UH' and max_hls is not None:
+                    for i in range(len(self.pipes)):
+                        hl = et.ENgetlinkvalue(int(self.pipes[i]['link_idx']), et.EN_HEADLOSS)
+                        gradient = abs(hl) / float(self.pipes[i]['length'])
+                        if max_hls[i] < gradient:
+                            max_hls[i] = gradient
 
-            if et.ENnextH() == 0:
-                break
+                if et.ENnextH() == 0:
+                    break
+        except Exception:
+            pass
 
         if mode == 'UH':
             sorted_indices = np.argsort(max_hls)[::-1]
@@ -472,6 +569,13 @@ class Optimization:
             ALGORITHM_MACO: 'MACO',
             ALGORITHM_PSO: 'PSO'
         }.get(self.algorithm, 'Optimized')
+        if self.report_enabled:
+            try:
+                et.ENsaveH()
+                et.ENreport()
+            except Exception:
+                pass
+
         out_path = self.inp_file.parent / (self.inp_file.stem + f"_Solved_{alg_name}.inp")
         et.ENsaveinpfile(str(out_path))
         logger.info(f"Optimized model saved to: {out_path}")
@@ -507,8 +611,8 @@ def main(argv: Optional[List[str]] = None) -> None:
     if argv is None:
         argv = sys.argv
     if len(argv) < 2 or argv[1] in ['-h', '--help']:
-        logger.error("Usage: ppno <problem_file.ext>")
-        return
+        print("Usage: ppno <problem_file.ext>")
+        sys.exit(0)
 
     logger.info("=" * 80)
     logger.info(" PRESSURIZED PIPE NETWORK OPTIMIZER ")
@@ -522,6 +626,7 @@ def main(argv: Optional[List[str]] = None) -> None:
             opt.pretty_print(solution)
     except Exception:
         logger.exception("A fatal error occurred during optimization:")
+        sys.exit(1)
     finally:
         if opt is not None:
             opt.close()

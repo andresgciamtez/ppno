@@ -16,11 +16,21 @@ logger = logging.getLogger(__name__)
 class LocalRefiner:
     """Implements the FLS-H (Feasible Local Search – Hybrid) algorithm.
 
+    This local search is specialized for hydraulic networks. It attempts to 
+    reduce the investment cost of a network design by perturbing pipe diameters 
+    while strictly maintaining the pressure constraints (feasibility).
+
+    Key features include:
+    - Global Evaluation Cache: Prevents redundant simulations.
+    - Fast Constraints: Pre-screens candidates based on approximate cost before calling EPANET.
+    - Stochastic Worsening: Can accept temporary cost increases to escape local minima.
+
     Attributes:
-        simulation: An instance of the Optimization class.
-        max_iter (int): Maximum number of iterations for the refinement.
-        acceptance_threshold (float): Percentage (decimal) of allowed worsening (e.g., 0.01 for 1%).
-        cache (Dict[bytes, Any]): Evaluation cache to avoid redundant simulations.
+        simulation: An instance of the Optimization class, providing EPANET simulation capabilities.
+        max_iter (int): Maximum number of iterations for the refinement process.
+        acceptance_threshold (float): Maximum acceptable cost increase (as a decimal percentage, e.g., 0.01 = 1%).
+        neighborhood_size (int): Number of candidate solutions generated per iteration.
+        cache (Dict[bytes, Dict[str, Any]]): Cache of evaluated solutions to speed up the search.
     """
 
     def __init__(self, simulation: Any, config: Optional[Dict[str, Any]] = None):
@@ -38,13 +48,18 @@ class LocalRefiner:
         self.cache = {}
 
     def refine(self, x0: np.ndarray) -> np.ndarray:
-        """Main FLS-H loop to improve a feasible solution.
+        """Executes the main FLS-H loop to improve a given feasible solution.
+
+        The algorithm iteratively generates a neighborhood around the current solution,
+        filters out unpromising candidates (too expensive), and evaluates the rest using
+        the hydraulic simulator. It applies a greedy/stochastic acceptance rule to 
+        navigate the search space.
 
         Args:
-            x0: Initial feasible solution vector (diameter indexes).
+            x0 (np.ndarray): Initial feasible solution vector (array of diameter indexes).
 
         Returns:
-            np.ndarray: The refined solution vector.
+            np.ndarray: The refined (improved) solution vector.
         """
         logger.info("[FLS-H] Starting Local Search Refinement...")
         
@@ -105,21 +120,25 @@ class LocalRefiner:
         return x
 
     def generate_neighborhood(self, x: np.ndarray) -> List[np.ndarray]:
-        """Generates a list of valid neighboring solutions.
+        """Generates a list of valid neighboring solutions via stochastic perturbation.
+
+        The neighborhood is created by randomly selecting a small number of pipes
+        (1 or 2) and increasing or decreasing their diameter index by 1 step. 
+        This keeps the search focused on local boundaries.
 
         Args:
-            x: Current solution vector.
+            x (np.ndarray): Current solution vector.
 
         Returns:
-            List[np.ndarray]: List of neighboring solution vectors.
+            List[np.ndarray]: List of mutated candidate solution vectors.
         """
         neighborhood = []
         n_vars = len(x)
         
         for _ in range(self.neighborhood_size):
             new_x = x.copy()
-            # Mutate 1-2 random pipes
-            n_mutations = np.random.randint(1, 3)
+            # Mutate 1-2 random pipes (capped by total available variables)
+            n_mutations = min(n_vars, np.random.randint(1, 3))
             indices = np.random.choice(n_vars, n_mutations, replace=False)
             
             for idx in indices:
@@ -132,7 +151,17 @@ class LocalRefiner:
         return neighborhood
 
     def repair(self, x: np.ndarray) -> np.ndarray:
-        """Hydraulic engineering repair rules."""
+        """Applies hydraulic engineering repair rules to a candidate solution.
+        
+        Currently, this enforces strict adherence to the upper and lower bounds
+        of the available catalog indices, ensuring no out-of-bounds array access occurs.
+
+        Args:
+            x (np.ndarray): A potentially out-of-bounds candidate vector.
+
+        Returns:
+            np.ndarray: The repaired and bounded candidate vector.
+        """
         repaired = np.round(x).astype(np.int32)
         repaired = np.clip(repaired, self.simulation.lbound, self.simulation.ubound)
         
@@ -142,7 +171,18 @@ class LocalRefiner:
 
 
     def evaluate(self, x: np.ndarray) -> Dict[str, Any]:
-        """Evaluates a solution using EPANET, with caching."""
+        """Evaluates a solution using the EPANET hydraulic simulation engine.
+        
+        Employs a hashing mechanism on the solution vector to prevent redundant
+        evaluations of previously tested configurations, significantly speeding up
+        the local search process.
+
+        Args:
+            x (np.ndarray): The solution vector to evaluate.
+
+        Returns:
+            Dict[str, Any]: A dictionary containing the 'cost' and 'feasible' status.
+        """
         key = x.tobytes()
         if key in self.cache:
             return self.cache[key]
@@ -159,7 +199,19 @@ class LocalRefiner:
         return result
 
     def is_promising(self, x: np.ndarray, current_cost: float) -> bool:
-        """Heuristic to avoid simulating obviously bad results."""
+        """Pre-screens candidates to avoid simulating obviously expensive solutions.
+        
+        Calculates the exact investment cost of the proposed candidate. If this cost
+        exceeds the current best cost by more than the `acceptance_threshold`, the 
+        candidate is deemed unpromising and is discarded without running EPANET.
+
+        Args:
+            x (np.ndarray): The proposed candidate vector.
+            current_cost (float): The cost of the current solution.
+
+        Returns:
+            bool: True if the candidate's cost is within acceptable limits, False otherwise.
+        """
         pipes = self.simulation.pipes
         catalog = self.simulation.catalog
         
@@ -174,7 +226,22 @@ class LocalRefiner:
 
     def accept_or_reject(self, current_x: np.ndarray, current_cost: float, 
                          new_x: np.ndarray, new_eval: Dict[str, Any]) -> Tuple[np.ndarray, float]:
-        """Stochastic/Greedy acceptance logic."""
+        """Applies Stochastic/Greedy acceptance logic for the new candidate.
+        
+        Strictly accepts any solution that improves (lowers) the cost. If the 
+        new solution is worse, it may still be accepted (with a 30% probability)
+        provided the cost increase is within the `acceptance_threshold`. This 
+        mechanism prevents the search from getting stuck in shallow local optima.
+
+        Args:
+            current_x (np.ndarray): The current accepted solution.
+            current_cost (float): The cost of the current solution.
+            new_x (np.ndarray): The candidate solution to consider.
+            new_eval (Dict[str, Any]): Evaluation results of the candidate solution.
+
+        Returns:
+            Tuple[np.ndarray, float]: A tuple containing the chosen solution and its cost.
+        """
         if new_eval['cost'] < current_cost:
             return new_x.copy(), new_eval['cost']
         
@@ -186,7 +253,19 @@ class LocalRefiner:
         return current_x, current_cost
 
     def diversify(self, x: np.ndarray) -> np.ndarray:
-        """Perturb the solution more significantly to escape stagnation."""
+        """Perturbs the solution more significantly to escape stagnation.
+        
+        When the local neighborhood yields no promising candidates or viable
+        feasible solutions, this method makes larger jumps (up to 3 indices)
+        across a larger portion of the variables (up to 15%) to force the 
+        search into a different region of the solution space.
+
+        Args:
+            x (np.ndarray): The stagnant solution.
+
+        Returns:
+            np.ndarray: The strongly perturbed candidate solution.
+        """
         new_x = x.copy()
         n_vars = len(x)
         n_perturb = max(1, int(n_vars * 0.15))
