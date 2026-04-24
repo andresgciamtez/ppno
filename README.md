@@ -8,6 +8,50 @@ Modernized version featuring a structural 3-stage optimization engine with **FLS
 
 ---
 
+## 🛠️ INSTALLATION
+
+To install the package from the source directory, use `pip`:
+
+```bash
+# Standard installation
+pip install .
+
+# Recommended: Editable mode for developers (changes reflect immediately)
+pip install -e .
+```
+
+### ⚠️ Troubleshooting (Windows): "ppno command not found"
+
+If you are on **Windows** and receive an error saying the `ppno` command is not recognized, it is likely because your Python **Scripts** folder is not in your system's **PATH**.
+
+**Options to fix it:**
+
+1.  **Add to PATH (Windows PowerShell):**
+    ```powershell
+    # Permanent change for the current user
+    [System.Environment]::SetEnvironmentVariable("Path", $env:Path + ";<PathToYourPythonOrCondaEnv>\Scripts", "User")
+    ```
+2.  **Run via Python module (Always works on all OS):**
+    ```bash
+    python -m ppno.ppno <problem_file.ext>
+    ```
+
+---
+
+## 📖 BASIC USAGE
+
+To run the optimizer, simply provide the path to your `.ext` problem definition file:
+
+```bash
+ppno problem_definition.ext
+```
+
+The tool will:
+1. Load the EPANET model specified in the `[INP]` section.
+2. Run the Stage 1 Heuristic Foundation.
+3. (Optional) Run the Stage 2 Global Exploration algorithms.
+4. Save the optimized EPANET model with the suffix `_Solved_<Algorithm>.inp`.
+
 ## 🚀 THE TWO-STAGE OPTIMIZATION PIPELINE
 
 PPNO has moved away from isolated algorithm execution to a coordinated **2-stage pipeline**. This approach ensures that global metaheuristics don't waste time exploring infeasible or low-quality regions of the search space.

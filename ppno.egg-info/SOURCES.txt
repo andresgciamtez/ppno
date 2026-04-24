@@ -2,7 +2,6 @@ LICENSE
 MANIFEST.in
 README.md
 pyproject.toml
-setup.py
 ppno/__init__.py
 ppno/constants.py
 ppno/local_refiner.py

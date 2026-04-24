@@ -8,6 +8,7 @@ build/
 
 # Testing
 .pytest_cache/
+.coverage
 *.rpt
 *_Solved_*.inp
 

@@ -12,7 +12,16 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Optional, Union, Any
 
 import numpy as np
-from entoolkit import toolkit as et
+try:
+    from entoolkit import toolkit as et
+    # Support for newer versions where functions moved to legacy
+    if not hasattr(et, 'ENopen'):
+        from entoolkit import legacy as et
+except ImportError:
+    try:
+        from entoolkit import legacy as et
+    except ImportError:
+        import entoolkit as et
 from . import section_parser as sp
 from .local_refiner import LocalRefiner
 

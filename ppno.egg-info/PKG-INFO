@@ -2,8 +2,6 @@ Metadata-Version: 2.4
 Name: ppno
 Version: 0.3.2
 Summary: Pressurized Pipe Network Optimizer
-Home-page: https://github.com/andresgciamtez/ppno
-Author: Andrés García Martínez
 Author-email: Andrés García Martínez <ppnoptimizer@gmail.com>
 Project-URL: Homepage, https://github.com/andresgciamtez/ppno
 Project-URL: Bug Tracker, https://github.com/andresgciamtez/ppno/issues
@@ -19,10 +17,7 @@ Requires-Dist: scipy>=1.7.0
 Requires-Dist: entoolkit
 Provides-Extra: mo
 Requires-Dist: pygmo>=2.18.0; extra == "mo"
-Dynamic: author
-Dynamic: home-page
 Dynamic: license-file
-Dynamic: requires-python
 
 # PRESSURIZED PIPE NETWORK OPTIMIZER (PPNO)
 
