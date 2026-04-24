@@ -167,11 +167,11 @@ def evolve_ppno(optimization_instance: Any,
             population.set_x(i, variant)
 
     while True:
+        trials += 1
         try:
             population = algorithm.evolve(population)
         except Exception as e:
             logger.error(f"  FAILED: {e}")
-            trials += 1
             if trials >= MAX_TRIALS:
                 logger.warning("Terminated: Maximum trials reached.")
                 break

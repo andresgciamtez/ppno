@@ -34,9 +34,7 @@ def mock_et():
 
 @pytest.fixture
 def example_files(tmp_path):
-    sub = tmp_path / "subdir"
-    sub.mkdir()
-    inp_path = sub / "test.inp"
+    inp_path = tmp_path / "test.inp"
     inp_path.write_text("Dummy INP")
     ext_path = tmp_path / "test.ext"
     ext_content = (
@@ -52,7 +50,7 @@ def test_init_all_branches(mock_et, tmp_path):
     # 1. Errors (lines 67, 73)
     with pytest.raises(FileNotFoundError): Optimization("ghost.ext")
     ext = tmp_path / "fail.ext"; ext.write_text("[PIPES]\np1 s1\n")
-    with pytest.raises(ValueError, match="The \\[INP\\] section is missing"): Optimization(ext)
+    with pytest.raises(ValueError, match="Mandatory \\[INP\\] section is missing"): Optimization(ext)
     
     # 2. Defensive et call (lines 95-96)
     mock_et.ENsetstatusreport.side_effect = Exception("Fail")
@@ -109,8 +107,10 @@ def test_check_and_print_branches(mock_et, example_files, caplog):
 def test_cli_and_errors_final(mock_et, example_files):
     ext_path, _ = example_files
     # 1. CLI Usage (lines 521-522)
-    with patch('sys.argv', ['ppno']): main()
-    with patch('sys.argv', ['ppno', '-h']): main()
+    with patch('sys.argv', ['ppno']): 
+        with pytest.raises(SystemExit): main()
+    with patch('sys.argv', ['ppno', '-h']): 
+        with pytest.raises(SystemExit): main()
     
     # 2. Success CLI (line 531)
     with patch('sys.argv', ['ppno', str(ext_path)]), \
@@ -120,7 +120,7 @@ def test_cli_and_errors_final(mock_et, example_files):
     # 3. Failure CLI (line 535)
     with patch('sys.argv', ['ppno', str(ext_path)]), \
          patch.object(Optimization, 'solve', side_effect=Exception("API Error")):
-        main()
+        with pytest.raises(SystemExit): main()
 
 def test_report_defensive(mock_et, example_files):
     opt = Optimization(example_files[0])

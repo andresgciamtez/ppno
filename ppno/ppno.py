@@ -134,6 +134,7 @@ class Optimization:
             tokens = parser.line_to_tuple(content)
             if not tokens: continue
             tokens = [t for t in tokens if t != '=']
+            if not tokens: continue
             key = tokens[0].upper().replace('_', '')
             if key in ['ALGORITHM', 'ALGORITHMS']:
                 for val in tokens[1:]:

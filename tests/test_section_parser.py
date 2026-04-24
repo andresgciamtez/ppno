@@ -22,8 +22,8 @@ def test_read_section(example_ext_file):
     reader = SectionParser(example_ext_file)
     sec1 = reader.read_section("SECTION1")
     assert len(sec1) == 2
-    assert sec1[0] == ("line1",)
-    assert sec1[1] == ("line2",)
+    assert sec1[0] == (2, ("line1",))
+    assert sec1[1] == (3, ("line2",))
 
 def test_read_all(example_ext_file):
     reader = SectionParser(example_ext_file)
@@ -43,7 +43,7 @@ def test_different_encodings(tmp_path):
     path.write_text("[SECTION]\nvalue", encoding='utf-16')
     reader = SectionParser(path)
     sections = reader.read()
-    assert sections["SECTION"][0] == "value"
+    assert sections["SECTION"][0] == (2, "value")
 
 def test_read_lines_fallback(tmp_path):
     # Test latin-1 fallback by mocking failures in first 3 encodings

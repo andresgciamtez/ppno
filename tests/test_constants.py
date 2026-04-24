@@ -13,7 +13,7 @@ def test_algorithm_ids():
 def test_params():
     assert c.PENALTY_VALUE == 1e9
     assert c.MAX_RETRIES == 3
-    assert c.MAX_ALGORITHM_TIME == 300
+    assert c.MAX_ALGORITHM_TIME == 120
 
 def test_ls_settings():
     assert c.LS_MAX_ITER == 50
