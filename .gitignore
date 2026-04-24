@@ -12,4 +12,6 @@ build/
 *_Solved_*.inp
 
 # Logs
+entoolkit.log
+go.bat
 example_*.txt

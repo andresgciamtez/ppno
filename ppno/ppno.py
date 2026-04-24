@@ -422,6 +422,7 @@ class Optimization:
                     self.algorithm = alg_id
                     
                     # Run metaheuristic seeded with the current best solution
+                    logger.info(f"      [SEED] Starting with best cost: {overall_best_cost:.2f}")
                     meta_solution = None
                     if alg_id in [ALGORITHM_DE, ALGORITHM_DA, ALGORITHM_DIRECT]:
                         from . import scipy_solver
@@ -448,8 +449,11 @@ class Optimization:
                         meta_cost = self.get_cost()
                         
                         if meta_cost < overall_best_cost:
+                            logger.info(f"      [ACCEPTED] Improved cost found: {meta_cost:.2f} (Previous: {overall_best_cost:.2f})")
                             overall_best_cost = meta_cost
                             overall_best_solution = meta_solution.copy()
+                        else:
+                            logger.info(f"      [DISCARDED] Cost {meta_cost:.2f} is not an improvement over {overall_best_cost:.2f}")
                         
                         self.results.append({
                             'Algorithm': alg_name, 'Attempt': attempt, 'Success': "YES",

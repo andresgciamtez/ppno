@@ -146,6 +146,13 @@ def evolve_ppno(optimization_instance: Any,
         # Replace the first individual with the exact initial solution
         population.set_x(0, initial_x)
         
+        # Initialize tracking with the seed if it's valid
+        seed_fit = population.get_f()[0]
+        if seed_fit[1] <= 0:
+            best_cost_found = float(seed_fit[0])
+            best_valid_fitness = list(seed_fit)
+            best_valid_x = initial_x.copy()
+
         # Replace other individuals with variations
         # We vary 5-10% of the variables for each individual to create diversity
         n_vars = len(initial_x)
