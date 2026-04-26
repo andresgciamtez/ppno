@@ -128,4 +128,8 @@ def test_report_defensive(mock_et, example_files):
     # Exception inside report loop (line 485)
     mock_et.ENreport.side_effect = Exception("Crash")
     opt._handle_success(np.array([0]))
-    assert mock_et.ENsaveinpfile.called
+    
+    # Verify that the .scn file was created instead of the .inp saving call
+    inp_name = example_files[1].stem
+    scn_path = example_files[1].parent / f"{inp_name}_result_UH.scn"
+    assert scn_path.exists()

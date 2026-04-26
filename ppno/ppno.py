@@ -399,13 +399,14 @@ class Optimization:
         logger.info(f"Stage 1 Complete | Cost: {cost_s1:.2f} | Time: {duration_s1:.2f}s")
         
         self.results.append({
-            'Algorithm': 'Foundation',
+            'Algorithm': 'UH',
             'Attempt': 1,
             'Success': "YES",
             'Time (s)': f"{duration_s1:.2f}",
             'Simulations': self.simulation_cycles,
             'Cost': f"{cost_s1:.2f}"
         })
+        self._save_scn_result("UH")
         
         overall_best_solution = solution.copy()
         overall_best_cost = cost_s1
@@ -470,6 +471,7 @@ class Optimization:
                             'Time (s)': f"{duration:.2f}", 'Simulations': self.simulation_cycles,
                             'Cost': f"{meta_cost:.2f}"
                         })
+                        self._save_scn_result(alg_name)
                         break
                     else:
                         self.results.append({
@@ -567,6 +569,34 @@ class Optimization:
         
         return refined_solution
 
+    def _save_scn_result(self, algorithm_name: str) -> None:
+        """Saves a .scn file with the diameters and roughnesses obtained by the algorithm.
+
+        The filename format: <inp_name>_result_<algorithm_name>.scn
+        """
+        scn_filename = f"{self.inp_file.stem}_result_{algorithm_name}.scn"
+        scn_path = self.inp_file.parent / scn_filename
+
+        try:
+            with open(scn_path, 'w', encoding='utf-8') as f:
+                f.write("[PIPES]\n")
+                f.write(f"; Result for algorithm: {algorithm_name}\n")
+                f.write(f"; {'ID':<16} {'Diameter':>12} {'Roughness':>12}\n")
+
+                x = self.get_x()
+                for i, pipe in enumerate(self.pipes):
+                    pipe_id = str(pipe['id'])
+                    series = self.catalog[str(pipe['series'])]
+                    size_idx = int(x[i])
+                    diameter = float(series[size_idx]['diameter'])
+                    roughness = float(series[size_idx]['roughness'])
+
+                    f.write(f" {pipe_id:<16} {diameter:>12.4f} {roughness:>12.6f}\n")
+
+            logger.info(f"Results saved to SCN file: {scn_path}")
+        except Exception as e:
+            logger.error(f"Failed to save SCN file {scn_path}: {e}")
+
     def _handle_success(self, solution: np.ndarray) -> None:
         """Saves and prints results for a successful run."""
         self.set_x(solution)
@@ -590,9 +620,8 @@ class Optimization:
             except Exception:
                 pass
 
-        out_path = self.inp_file.parent / (self.inp_file.stem + f"_Solved_{alg_name}.inp")
-        et.ENsaveinpfile(str(out_path))
-        logger.info(f"Optimized model saved to: {out_path}")
+        # Save final result to SCN file
+        self._save_scn_result(alg_name)
 
     def pretty_print(self, x: np.ndarray) -> None:
         """Displays the solution in a formatted table."""

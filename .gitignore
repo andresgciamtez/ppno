@@ -10,7 +10,7 @@ build/
 .pytest_cache/
 .coverage
 *.rpt
-*_Solved_*.inp
+*_result_*.scn
 
 # Logs
 entoolkit.log

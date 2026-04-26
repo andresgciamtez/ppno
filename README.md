@@ -3,8 +3,8 @@
 2019-2026 - Andrés García Martínez (ppnoptimizer@gmail.com)
 Licensed under the Apache License 2.0. http://www.apache.org/licenses/
 
-## VERSION 0.3.2
-Modernized version featuring a structural 3-stage optimization engine with **FLS-H** local search and advanced metaheuristic population seeding.
+## VERSION 0.3.3
+Modernized version featuring a structural 2-stage optimization engine with **FLS-H** local search, metaheuristic population seeding, and incremental result saving in `.scn` format.
 
 ---
 
@@ -50,7 +50,20 @@ The tool will:
 1. Load the EPANET model specified in the `[INP]` section.
 2. Run the Stage 1 Heuristic Foundation.
 3. (Optional) Run the Stage 2 Global Exploration algorithms.
-4. Save the optimized EPANET model with the suffix `_Solved_<Algorithm>.inp`.
+4. Save the results for each successful algorithm in EPANET `.scn` format (partial section file).
+5. (Optional) Generate an EPANET `.rpt` report if requested.
+
+## 📁 OUTPUTS
+
+PPNO focuses on generating lightweight, reusable result files instead of full network models. After each successful algorithm (including the mandatory Stage 1), a `.scn` file is created:
+
+- **Filename**: `<original_inp_name>_result_<algorithm_name>.scn`
+- **Content**: A standard EPANET `[PIPES]` section containing:
+    - **ID**: The pipe identifier.
+    - **Diameter**: The optimized diameter from the catalog.
+    - **Roughness**: The corresponding roughness coefficient.
+
+These files are ideal for being imported back into the original EPANET model or for use in automated post-processing scripts.
 
 ## 🚀 THE TWO-STAGE OPTIMIZATION PIPELINE
 
