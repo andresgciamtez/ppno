@@ -38,7 +38,7 @@ def test_ppno_missing_branches_corrected(mock_et, tmp_path):
     ext.write_text("[INP]\nt.inp\n[OPTIONS]\nREPORT YES\n[PIPES]\np1 s1\n[CATALOG]\ns1 100 0.1 10\ns1 200 0.1 20\n[PRESSURES]\nn1 20")
     
     opt = Optimization(ext)
-    assert opt.report_enabled is True
+    assert opt.config['MaxTime'] == 120
     
     # Heuristic expansion failure
     opt.pipes = np.array([(0, 'p1', 100.0, 's1')], dtype=[('link_idx', 'i4'), ('id', 'U16'), ('length', 'f4'), ('series', 'U16')])
@@ -56,6 +56,7 @@ def test_pygmo_missing_branches_corrected():
     opt.catalog = {'s1': np.sort(np.array([(100, 0.1, 10), (200, 0.1, 20)], dtype=[('diameter', 'f4'), ('roughness', 'f4'), ('price', 'f4')]), order='diameter')}
     opt.lbound = np.array([0]); opt.ubound = np.array([1]); opt.dimension = 1
     opt.simulation_cycles = 0
+    opt.config = {'PopulationSize': 100, 'MaxTrials': 2, 'Patience': 10, 'Generations': 100, 'MaxTime': 120}
     
     prob = PPNOProblem(opt)
     assert "Pressurized" in prob.get_name()
@@ -72,7 +73,7 @@ def test_pygmo_missing_branches_corrected():
         mock_pg.population.return_value = m_pop
         mock_pg.problem.return_value = m_pop.problem
         
-        with patch('ppno.pygmo_solver.MAX_TRIALS', 2), patch('ppno.pygmo_solver.perf_counter', side_effect=range(10)):
+        with patch('ppno.pygmo_solver.perf_counter', side_effect=range(10)):
              f, x = evolve_ppno(opt, lambda: None, "TEST")
              assert f[0] == 100.0
 
@@ -156,7 +157,7 @@ def test_optimization_options_variants(mock_et, tmp_path):
     ext.write_text("[INP]\nt.inp\n[OPTIONS]\nRETRIES 5\nGENERATERPT YES\n[PIPES]\np1 s1\n[CATALOG]\ns1 100 0.1 10\n[PRESSURES]\nn1 20")
     opt = Optimization(ext)
     assert opt.max_retries == 5
-    assert opt.report_enabled is True
+    assert opt.config['MaxTime'] == 120
 
 def test_all_pygmo_algorithms(mock_et, tmp_path):
     ext = tmp_path / "pygmo.ext"; (tmp_path / "t.inp").write_text("")
@@ -206,6 +207,7 @@ def test_scipy_timeout(mock_et, tmp_path):
 def test_pygmo_problem_methods(mock_et):
     opt = MagicMock()
     opt.lbound = np.array([0]); opt.ubound = np.array([1]); opt.dimension = 1
+    opt.config = {'PopulationSize': 100, 'MaxTrials': 2, 'Patience': 10, 'Generations': 100, 'MaxTime': 120}
     from ppno.pygmo_solver import PPNOProblem
     prob = PPNOProblem(opt)
     assert prob.get_nobj() == 2

@@ -20,6 +20,13 @@ def mock_opt():
     opt.ubound = np.array([1])
     opt.simulation_cycles = 10
     opt.dimension = 1
+    opt.config = {
+        'PopulationSize': 100,
+        'MaxTrials': 250,
+        'Patience': 10,
+        'Generations': 100,
+        'MaxTime': 120
+    }
     return opt
 
 def test_ppno_problem_getters(mock_opt):
@@ -55,8 +62,8 @@ def test_evolve_ppno_complete_loop_logic(mock_opt, mock_pg):
     mock_pg.algorithm.return_value = m_alg
     mock_pg.population.return_value = m_pop
     
-    with patch('ppno.pygmo_solver.perf_counter', side_effect=range(100)), \
-         patch('ppno.pygmo_solver.MAX_TRIALS', 2): # Limit trials for deterministic test
+    with patch('ppno.pygmo_solver.perf_counter', side_effect=range(100)):
+        mock_opt.config['MaxTrials'] = 2
         f, x = evolve_ppno(mock_opt, lambda: MagicMock(), "TEST")
         assert f[0] == 50.0
 
@@ -72,8 +79,8 @@ def test_algorithm_wrappers_execution(mock_opt, mock_pg):
     m_alg.evolve.return_value = m_pop
     mock_pg.algorithm.return_value = m_alg
     
-    with patch('ppno.pygmo_solver.perf_counter', side_effect=range(1000)), \
-         patch('ppno.pygmo_solver.MAX_TRIALS', 1): # Fast execution
+    with patch('ppno.pygmo_solver.perf_counter', side_effect=range(1000)):
+        mock_opt.config['MaxTrials'] = 1
         nsga2(mock_opt)
         assert mock_pg.nsga2.called
         moead(mock_opt)
@@ -96,7 +103,7 @@ def test_evolve_ppno_early_exit(mock_opt, mock_pg):
     m_alg.evolve.return_value = m_pop
     mock_pg.algorithm.return_value = m_alg
     
-    with patch('ppno.pygmo_solver.perf_counter', side_effect=range(100)), \
-         patch('ppno.pygmo_solver.MAX_NO_CHANGES', 1): # Immediate break if no change
+    with patch('ppno.pygmo_solver.perf_counter', side_effect=range(100)):
+        mock_opt.config['Patience'] = 1
         evolve_ppno(mock_opt, lambda: MagicMock(), "TEST")
         assert m_alg.evolve.called

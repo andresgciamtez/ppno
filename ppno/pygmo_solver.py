@@ -138,7 +138,8 @@ def evolve_ppno(optimization_instance: Any,
 
     # Initialize algorithm and population
     algorithm = pg.algorithm(algorithm_factory())
-    population = pg.population(prob, size=POPULATION_SIZE)
+    pop_size = optimization_instance.config.get('PopulationSize', 100)
+    population = pg.population(prob, size=pop_size)
 
     # Seed population with the initial solution and feasible variations
     if initial_x is not None:
@@ -156,7 +157,7 @@ def evolve_ppno(optimization_instance: Any,
         # Replace other individuals with variations
         # We vary 5-10% of the variables for each individual to create diversity
         n_vars = len(initial_x)
-        for i in range(1, min(10, POPULATION_SIZE)): # Seed first 10
+        for i in range(1, min(10, pop_size)): # Seed first 10
             variant = initial_x.copy()
             n_change = max(1, int(n_vars * 0.05))
             idx_change = np.random.choice(n_vars, n_change, replace=False)
@@ -166,17 +167,19 @@ def evolve_ppno(optimization_instance: Any,
                                        optimization_instance.ubound[idx])
             population.set_x(i, variant)
 
+    max_trials = optimization_instance.config.get('MaxTrials', 250)
+    
     while True:
         trials += 1
         try:
             population = algorithm.evolve(population)
         except Exception as e:
             logger.error(f"  FAILED: {e}")
-            if trials >= MAX_TRIALS:
+            if trials >= max_trials:
                 logger.warning("Terminated: Maximum trials reached.")
                 break
             continue
-        total_generations += GENERATIONS_PER_TRIAL
+        total_generations += optimization_instance.config.get('Generations', 100)
 
         # Search for the best valid solution in the current population
         fitness_values = population.get_f()
@@ -205,13 +208,16 @@ def evolve_ppno(optimization_instance: Any,
 
         # Stopping criteria check
         elapsed_time = perf_counter() - start_time
-        if elapsed_time >= MAX_ALGORITHM_TIME:
+        max_time = optimization_instance.config.get('MaxTime', 120)
+        patience = optimization_instance.config.get('Patience', 10)
+        
+        if elapsed_time >= max_time:
             logger.warning("Terminated: Maximum time reached.")
             break
-        if trials >= MAX_TRIALS:
+        if trials >= max_trials:
             logger.warning("Terminated: Maximum trials reached.")
             break
-        if consecutive_no_changes >= MAX_NO_CHANGES:
+        if consecutive_no_changes >= patience:
             logger.info(f"Terminated: Converged after {consecutive_no_changes} trials without improvement.")
             break
 
@@ -223,20 +229,24 @@ def evolve_ppno(optimization_instance: Any,
 
 def nsga2(optimization_instance: Any, initial_x: Optional[np.ndarray] = None) -> Tuple[Optional[List[float]], Optional[np.ndarray]]:
     """Runs the Non-dominated Sorting Genetic Algorithm II."""
-    return evolve_ppno(optimization_instance, lambda: pg.nsga2(gen=GENERATIONS_PER_TRIAL), "NSGA-II", initial_x)
+    gens = optimization_instance.config.get('Generations', 100)
+    return evolve_ppno(optimization_instance, lambda: pg.nsga2(gen=gens), "NSGA-II", initial_x)
 
 
 def moead(optimization_instance: Any, initial_x: Optional[np.ndarray] = None) -> Tuple[Optional[List[float]], Optional[np.ndarray]]:
     """Runs Multi-Objective Evolutionary Algorithm based on Decomposition."""
-    return evolve_ppno(optimization_instance, lambda: pg.moead(gen=GENERATIONS_PER_TRIAL), "MOEAD", initial_x)
+    gens = optimization_instance.config.get('Generations', 100)
+    return evolve_ppno(optimization_instance, lambda: pg.moead(gen=gens), "MOEAD", initial_x)
 
 
 def maco(optimization_instance: Any, initial_x: Optional[np.ndarray] = None) -> Tuple[Optional[List[float]], Optional[np.ndarray]]:
     """Runs Multi-objective Ant Colony Optimizer."""
-    return evolve_ppno(optimization_instance, lambda: pg.maco(gen=GENERATIONS_PER_TRIAL), "MACO", initial_x)
+    gens = optimization_instance.config.get('Generations', 100)
+    return evolve_ppno(optimization_instance, lambda: pg.maco(gen=gens), "MACO", initial_x)
 
 
 def nspso(optimization_instance: Any, initial_x: Optional[np.ndarray] = None) -> Tuple[Optional[List[float]], Optional[np.ndarray]]:
     """Runs Non-dominated Sorting Particle Swarm Optimizer."""
-    return evolve_ppno(optimization_instance, lambda: pg.nspso(gen=GENERATIONS_PER_TRIAL), "NSP-SO (PSO)", initial_x)
+    gens = optimization_instance.config.get('Generations', 100)
+    return evolve_ppno(optimization_instance, lambda: pg.nspso(gen=gens), "NSP-SO (PSO)", initial_x)
 

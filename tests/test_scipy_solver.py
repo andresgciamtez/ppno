@@ -11,6 +11,7 @@ def mock_opt():
     opt.ubound = np.array([10, 10])
     opt.get_cost.return_value = 100.0
     opt.check.return_value = np.array([0.0, 0.0]) # No deficit
+    opt.config = {'MaxTime': 120}
     return opt
 
 def test_solve_scipy_de(mock_opt):

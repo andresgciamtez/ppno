@@ -6,7 +6,7 @@ Optimization of the New York Network (Murphy, Simpson & Dandy, 1993)
 ./examples/NYT.inp
 
 [OPTIONS]
-Algorithm DE DA DIRECT NSGA2 MOEAD MACO PSO
+Algorithm DE DA NSGA2 MOEAD MACO PSO
 
 [PIPES]
 ;ID series

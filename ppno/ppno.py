@@ -92,8 +92,6 @@ class Optimization:
              raise FileNotFoundError(f"Line {inp_line_num}: EPANET INP file not found: {inp_raw_path}")
 
         self.inp_file = inp_path
-        self.rpt_file = self.inp_file.with_suffix('.rpt')
-        self.report_enabled = False
         self.algorithm = ALGORITHM_UH
 
         # 2. Open Toolkit for entity validation
@@ -127,6 +125,18 @@ class Optimization:
         self._current_x = np.zeros(self.dimension, dtype=np.int32)
         self.lbound = np.zeros(self.dimension, dtype=np.int32)
         self.ubound = np.array([len(self.catalog[str(p['series'])]) - 1 for p in self.pipes], dtype=np.int32)
+        
+        self.config = {
+            'MaxTime': 120,
+            'RandomSeed': None,
+            'PopulationSize': 100,
+            'Generations': 100,
+            'Patience': 10,
+            'MaxTrials': 250,
+            'RefinerIters': LS_MAX_ITER,
+            'RefinerNeighbors': LS_NEIGHBORHOOD_SIZE,
+            'RefinerWorsening': LS_ACCEPTANCE_THRESHOLD
+        }
         
         self.simulation_cycles = 0
         self.results = []
@@ -243,10 +253,34 @@ class Optimization:
                 if values:
                     self.max_retries = int(values[0])
                     logger.info(f"Max Retries: {self.max_retries}")
-            elif key in ['REPORT', 'GENERATERPT', 'REPORTFILE']:
+            elif key in ['MAXTIME']:
                 if values:
-                    self.report_enabled = values[0].upper() in ['YES', 'Y', 'TRUE']
-                    logger.info(f"Generate RPT File: {self.report_enabled}")
+                    self.config['MaxTime'] = int(values[0])
+                    logger.info(f"MaxTime: {self.config['MaxTime']}s")
+            elif key in ['RANDOMSEED', 'SEED']:
+                if values:
+                    self.config['RandomSeed'] = int(values[0])
+                    np.random.seed(self.config['RandomSeed'])
+                    try:
+                        import pygmo as pg
+                        pg.set_global_rng_seed(self.config['RandomSeed'])
+                    except ImportError:
+                        pass
+                    logger.info(f"RandomSeed: {self.config['RandomSeed']}")
+            elif key in ['POPULATIONSIZE', 'POPSIZE']:
+                if values: self.config['PopulationSize'] = int(values[0])
+            elif key in ['GENERATIONS', 'GENS']:
+                if values: self.config['Generations'] = int(values[0])
+            elif key in ['PATIENCE', 'MAXNOCHANGES']:
+                if values: self.config['Patience'] = int(values[0])
+            elif key in ['MAXTRIALS']:
+                if values: self.config['MaxTrials'] = int(values[0])
+            elif key in ['REFINERITERS']:
+                if values: self.config['RefinerIters'] = int(values[0])
+            elif key in ['REFINERNEIGHBORS']:
+                if values: self.config['RefinerNeighbors'] = int(values[0])
+            elif key in ['REFINERWORSENING']:
+                if values: self.config['RefinerWorsening'] = float(values[0])
 
     def _load_pipes(self, pipe_lines: List[Tuple[int, str]], parser: sp.SectionParser) -> None:
         """Parses the PIPES section."""
@@ -559,9 +593,9 @@ class Optimization:
     def _apply_refinement(self, solution: np.ndarray) -> np.ndarray:
         """Applies FLS-H refined local search to the current solution."""
         config = {
-            'max_iter': LS_MAX_ITER,
-            'acceptance_threshold': LS_ACCEPTANCE_THRESHOLD,
-            'neighborhood_size': LS_NEIGHBORHOOD_SIZE
+            'max_iter': self.config['RefinerIters'],
+            'acceptance_threshold': self.config['RefinerWorsening'],
+            'neighborhood_size': self.config['RefinerNeighbors']
         }
         
         refiner = LocalRefiner(self, config)
@@ -613,12 +647,6 @@ class Optimization:
             ALGORITHM_MACO: 'MACO',
             ALGORITHM_PSO: 'PSO'
         }.get(self.algorithm, 'Optimized')
-        if self.report_enabled:
-            try:
-                et.ENsaveH()
-                et.ENreport()
-            except Exception:
-                pass
 
         # Save final result to SCN file
         self._save_scn_result(alg_name)

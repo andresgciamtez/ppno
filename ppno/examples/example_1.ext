@@ -6,7 +6,7 @@ Optimization of the Hanoi Network (Fujiwara & Khang, 1990)
 ./examples/HAN.inp
 
 [OPTIONS]
-Algorithm DE DA DIRECT NSGA2 MOEAD MACO PSO
+Algorithm DE DA NSGA2 MOEAD MACO PSO
 
 [PIPES]
 ;ID     series

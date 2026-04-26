@@ -50,8 +50,9 @@ def solve_scipy(opt_instance, alg_id: int, initial_x: Optional[np.ndarray] = Non
     start_time = perf_counter()
 
     def objective(x_params):
-        if perf_counter() - start_time > MAX_ALGORITHM_TIME:
-            raise SolverTimeoutError(f"Time limit of {MAX_ALGORITHM_TIME}s reached.")
+        max_time = opt_instance.config.get('MaxTime', 120)
+        if perf_counter() - start_time > max_time:
+            raise SolverTimeoutError(f"Time limit of {max_time}s reached.")
         opt_instance.set_x(np.round(x_params).astype(np.int32))
         
         # We use mode 'PD' to get the maximum deficit for a guided penalty

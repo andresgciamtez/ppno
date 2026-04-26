@@ -72,7 +72,6 @@ The tool will:
 2. Run the Stage 1 Heuristic Foundation.
 3. (Optional) Run the Stage 2 Global Exploration algorithms.
 4. Save the results for each successful algorithm in EPANET `.scn` format (partial section file).
-5. (Optional) Generate an EPANET `.rpt` report if requested.
 
 ## 📁 OUTPUTS
 
@@ -125,15 +124,45 @@ The `.ext` file controls the optional Stage 2 of the pipeline. Example:
 
 ```ini
 [OPTIONS]
-Algorithm DE DA NSGA2
+; --- Heuristic & Local Search (UH / FLS-H) ---
+RefinerIters 50
+RefinerNeighbors 20
+RefinerWorsening 0.01
+
+; --- General Stage 2 Options ---
+Algorithm NSGA2 DE
 MaxRetries 3
+MaxTime 120
+RandomSeed 42
+
+; --- PyGMO Solvers Specific Options ---
+PopulationSize 100
+Generations 100
+Patience 10
+MaxTrials 250
 ```
 
--   **Algorithm**: A space-separated list of metaheuristics (DE, DA, DIRECT, NSGA2, MOEAD, MACO, PSO).
+### 1. Heuristic & Local Search (UH / FLS-H)
+-   **RefinerIters**: Maximum iterations for the FLS-H local search (default: 50).
+-   **RefinerNeighbors**: Number of candidate solutions generated per FLS-H iteration (default: 20).
+-   **RefinerWorsening**: Allowed cost worsening fraction (e.g., `0.01` for 1%) to escape local minima (default: 0.01).
+
+### 2. General Stage 2 Options (Common to SciPy & PyGMO)
+-   **Algorithm**: A space-separated list of metaheuristics (DE, DA, NSGA2, MOEAD, MACO, PSO).
     -   Example: `Algorithm NSGA2 DE` (Runs both Stage 2 algorithms sequentially).
-    -   Example: `; Algorithm` (Skips Stage 2, running only mandatory Stage 1 + 3).
+    -   Example: `; Algorithm` (Skips Stage 2, running only mandatory Stage 1).
 -   **MaxRetries**: Retries for Stage 2 algorithms if they fail to improve the baseline.
--   **Report**: Set to `YES` to automatically generate EPANET `.rpt` files upon success.
+-   **MaxTime**: Maximum execution time per algorithm in seconds (default: 120).
+-   **RandomSeed**: Integer seed for reproducible results (e.g., `RandomSeed 42`).
+
+### 3. SciPy Solvers Specific Options
+*(Currently, SciPy algorithms rely entirely on the general options).*
+
+### 4. PyGMO Solvers Specific Options
+-   **PopulationSize**: Number of individuals in the population (default: 100).
+-   **Generations**: Number of generations per trial (default: 100).
+-   **Patience**: Trials without improvement before early stopping (default: 10).
+-   **MaxTrials**: Maximum evolutionary trials allowed (default: 250).
 
 ---
 
