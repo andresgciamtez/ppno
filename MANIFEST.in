@@ -1,9 +1,7 @@
 include README.md
 include LICENSE
 include pyproject.toml
-include setup.py
 
-recursive-include ppno/epanet *.dll *.so *.dylib
 recursive-include ppno/examples *.ext *.inp
 
 global-exclude __pycache__

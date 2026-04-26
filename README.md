@@ -3,146 +3,164 @@
 2019-2026 - Andrés García Martínez (ppnoptimizer@gmail.com)
 Licensed under the Apache License 2.0. http://www.apache.org/licenses/
 
-## VERSION 0.3.1
-Modernized and refactored version with improved nomenclature and Pythonic standards.
+## VERSION 0.3.3
+Modernized version featuring a structural 2-stage optimization engine with **FLS-H** local search, metaheuristic population seeding, and incremental result saving in `.scn` format.
 
 ---
 
-## 🛠 INSTALLATION
+## 🛠️ INSTALLATION
 
-The most reliable way to install **PPNO** is using [Conda](https://docs.conda.io/en/latest/miniconda.html) to manage the complex scientific dependencies (especially `PyGMO`).
+To install the package from the source directory, use `pip`:
 
-### Step-by-Step Setup
+```bash
+# Standard installation
+pip install .
 
-1. **Create and activate a dedicated environment:**
-   ```powershell
-   conda create -n ppno python=3.9
-   conda activate ppno
-   ```
-
-2. **Install binary dependencies via conda-forge:**
-   > [!IMPORTANT]
-   > We strongly recommend installing `pygmo` via Conda to avoid common compilation issues with `pip`.
-   ```powershell
-   conda install -c conda-forge numpy scipy pygmo
-   ```
-
-3. **Install PPNO from the local source directory:**
-   Navigate to the project root and run:
-   ```powershell
-   pip install .
-   ```
-
----
-
-## DEPENDENCIES
-- `numpy`
-- `SciPy`
-- `PyGMO`
-
----
-
-## PURPOSE
-The program optimizes the pipe diameters of a pressure pipe network defined by an EPANET 2.x model. The result is the selection of the most cost-effective pipe diameters from a catalog that meet the minimum pressure requirements at specified nodes.
-
----
-
-## 🚀 RUN
-
-PPNO is easy to use from the command line once installed.
-
-### Basic Syntax
-```powershell
-ppno <problem_file.ext>
+# Recommended: Editable mode for developers (changes reflect immediately)
+pip install -e .
 ```
 
-### Try an Example
-You can test the installation using one of the provided example problems:
-```powershell
-ppno ppno/examples/Example1.ext
-```
+### ⚠️ Troubleshooting (Windows): "ppno command not found"
 
-### What happens during a run?
-1. **Validation**: PPNO parses your `.ext` file and loads the associated EPANET `.inp` network.
-2. **Optimization**: The selected algorithm searches for the best diameters to minimize cost while satisfying pressure constraints.
-3. **Execution**: Real-time progress is shown in the console.
-4. **Completion**: A final summary table is printed, and a new optimized EPANET `.inp` file is saved to disk.
+If you are on **Windows** and receive an error saying the `ppno` command is not recognized, it is likely because your Python **Scripts** folder is not in your system's **PATH**.
+
+**Options to fix it:**
+
+1.  **Add to PATH (Windows PowerShell):**
+    ```powershell
+    # Permanent change for the current user
+    [System.Environment]::SetEnvironmentVariable("Path", $env:Path + ";<PathToYourPythonOrCondaEnv>\Scripts", "User")
+    ```
+2.  **Run via Python module (Always works on all OS):**
+    ```bash
+    python -m ppno.ppno <problem_file.ext>
+    ```
 
 ---
 
-## PROBLEM DEFINITION
-The input file uses a structure similar to an EPANET `.inp` file, with a `.ext` extension. Sections are indicated by header labels (`[]`).
+## 📖 BASIC USAGE
 
-### [TITLE]
-Optional description of the problem.
-Example:
-```ini
-[TITLE]
-Hanoi example by Fujiwara and Khang, 1990
+To run the optimizer, simply provide the path to your `.ext` problem definition file:
+
+```bash
+ppno problem_definition.ext
 ```
 
-### [INP]
-Path to the EPANET input file (`.inp`).
-Example:
-```ini
-[INP]
-networks/hanoi.inp
-```
+The tool will:
+1. Load the EPANET model specified in the `[INP]` section.
+2. Run the Stage 1 Heuristic Foundation.
+3. (Optional) Run the Stage 2 Global Exploration algorithms.
+4. Save the results for each successful algorithm in EPANET `.scn` format (partial section file).
 
-### [OPTIONS]
-Calculation options.
-- **Algorithm**: The optimization method to use:
-    - `UH`: **Unit Headloss Heuristic**. Simple and fast heuristic that increases diameters based on maximum headloss.
-    - `DE`: **Differential Evolution**. Robust global optimization from SciPy.
-    - `DA`: **Dual Annealing**. Efficient global optimization for large spaces.
-    - `NSGA2`: **Non-dominated Sorting Genetic Algorithm II**. Multi-objective approach via PyGMO.
-- **Refinement**: `YES` or `NO`. Enables a final greedy refinement to further reduce costs in non-critical pipes.
+## 📁 OUTPUTS
 
-Example:
+PPNO focuses on generating lightweight, reusable result files instead of full network models. After each successful algorithm (including the mandatory Stage 1), a `.scn` file is created:
+
+- **Filename**: `<original_inp_name>_result_<algorithm_name>.scn`
+- **Content**: A standard EPANET `[PIPES]` section containing:
+    - **ID**: The pipe identifier.
+    - **Diameter**: The optimized diameter from the catalog.
+    - **Roughness**: The corresponding roughness coefficient.
+
+These files are ideal for being imported back into the original EPANET model or for use in automated post-processing scripts.
+
+## 🚀 THE TWO-STAGE OPTIMIZATION PIPELINE
+
+PPNO has moved away from isolated algorithm execution to a coordinated **2-stage pipeline**. This approach ensures that global metaheuristics don't waste time exploring infeasible or low-quality regions of the search space.
+
+### 1. Stage 1: Heuristic Foundation & Initial Refinement (Mandatory)
+The process always starts by building a feasible baseline:
+-   **Unit Headloss Heuristic (UH)**: Rapidly finds an initial set of diameters that satisfy pressure constraints.
+-   **FLS-H Refinement**: After UH, the **Feasible Local Search – Hybrid** algorithm performs an initial "sharpening" to reduce investment costs while maintaining feasibility.
+-   **Result**: A high-quality, feasible solution $x_1$ that serves as the anchor for the rest of the pipeline.
+
+### 2. Stage 2: Global Exploration via Hybrid Seeding (Optional)
+If stage 2 metaheuristics (Genetics, DE, etc.) are configured, they perform a global search using an advanced **Seeding Strategy**:
+-   **Population Injection**: Instead of starting with a random population, the solver injects $x_1$ into the starting set.
+-   **Feasible Variation**: A portion of the initial population is filled with "feasible variants" of $x_1$ (random perturbations that are automatically repaired).
+-   **Final Polish**: After the metaheuristic completes, a final pass of the **FLS-H** algorithm is applied to the best global solution found. This ensures that even minor cost-reduction opportunities often missed by global metaheuristics are captured.
+-   **Benefits**: By starting "on the shoulders" of a feasible local optimum, global solvers converge significantly faster and focus on finding global improvements rather than struggling with basic feasibility.
+-   **Supported Solvers**: `DE`, `DA`, `NSGA2`, `MOEAD`, `MACO`, `PSO`.
+
+
+
+## 📜 FLS-H (Feasible Local Search – Hybrid)
+
+The hardware of this new pipeline is the **FLS-H** module. It is a local search algorithm specialized for hydraulic networks:
+
+| Feature | Description |
+| :--- | :--- |
+| **Global Evaluation Cache** | Avoids redundant EPANET simulations by hashing and storing evaluation results across the entire session. |
+| **Hydraulic Rules** | Neighborhood generation targets pipes with high hydraulic potential (gradient) for more efficient cost reduction. |
+| **Fast Constraints** | Filters out obviously invalid solutions (bounds, connectivity) without calling the EPANET engine. |
+| **Stochastic Worsening** | Occasionally accepts small cost increases (<1-2%) to jump out of narrow local minima. |
+
+---
+
+## ⚙️ CONFIGURATION ([OPTIONS])
+
+The `.ext` file controls the optional Stage 2 of the pipeline. Example:
+
 ```ini
 [OPTIONS]
-Algorithm UH
-Refinement YES
+; --- Heuristic & Local Search (UH / FLS-H) ---
+RefinerIters 50
+RefinerNeighbors 20
+RefinerWorsening 0.01
+
+; --- General Stage 2 Options ---
+Algorithm NSGA2 DE
+MaxRetries 3
+MaxTime 120
+RandomSeed 42
+
+; --- PyGMO Solvers Specific Options ---
+PopulationSize 100
+Generations 100
+Patience 10
+MaxTrials 250
 ```
 
-### [PIPES]
-Pipes to be sized, followed by the name of the pipe series from the catalog.
-Example:
-```ini
-[PIPES]
-P1    PVC
-P2    PVC
-P3    STAINLESS_STEEL
-```
+### 1. Heuristic & Local Search (UH / FLS-H)
+-   **RefinerIters**: Maximum iterations for the FLS-H local search (default: 50).
+-   **RefinerNeighbors**: Number of candidate solutions generated per FLS-H iteration (default: 20).
+-   **RefinerWorsening**: Allowed cost worsening fraction (e.g., `0.01` for 1%) to escape local minima (default: 0.01).
 
-### [PRESSURES]
-Minimum pressure constraints for specific nodes.
-Example:
-```ini
-[PRESSURES]
-N2    20.0
-N4    20.0
-```
+### 2. General Stage 2 Options (Common to SciPy & PyGMO)
+-   **Algorithm**: A space-separated list of metaheuristics (DE, DA, NSGA2, MOEAD, MACO, PSO).
+    -   Example: `Algorithm NSGA2 DE` (Runs both Stage 2 algorithms sequentially).
+    -   Example: `; Algorithm` (Skips Stage 2, running only mandatory Stage 1).
+-   **MaxRetries**: Retries for Stage 2 algorithms if they fail to improve the baseline.
+-   **MaxTime**: Maximum execution time per algorithm in seconds (default: 120).
+-   **RandomSeed**: Integer seed for reproducible results (e.g., `RandomSeed 42`).
 
-### [CATALOG]
-Defines the available pipe series. Each line contains:
-`Series Name | Diameter | Roughness | Unit Cost`
-Example:
-```ini
-[CATALOG]
-PVC  90.0    0.100     1.00
-PVC  125.0   0.100     1.56
-PVC  150.0   0.100     1.75
-```
+### 3. SciPy Solvers Specific Options
+*(Currently, SciPy algorithms rely entirely on the general options).*
+
+### 4. PyGMO Solvers Specific Options
+-   **PopulationSize**: Number of individuals in the population (default: 100).
+-   **Generations**: Number of generations per trial (default: 100).
+-   **Patience**: Trials without improvement before early stopping (default: 10).
+-   **MaxTrials**: Maximum evolutionary trials allowed (default: 250).
 
 ---
 
-## RESULTS
-The optimized results are displayed in the console and a new EPANET file is generated. The filename includes a suffix based on the algorithm used: `_Solved_UH`, `_Solved_DE`, etc.
+## 🛡️ ROBUSTNESS & VALIDATION
+
+PPNO features a defensive programming architecture:
+- **Semantic Validation**: Automatically checks for missing files, invalid sections, orphaned nodes/pipes, and anomalies in the catalog (e.g., non-monotonic diameters, anomalous pricing).
+- **Graceful Failure**: Exits with code `1` on fatal errors, making it safe for CI/CD pipelines and batch scripts.
+- **Resilient Parsing**: Supports UTF-8, UTF-16, and CP1252 encodings gracefully.
+- **Test Coverage**: The optimization engine and parser are backed by an exhaustive test suite targeting high branch coverage (~90%+).
 
 ---
 
-## EXAMPLES
-Sample problems are available in the `ppno/examples/` directory.
+## 📜 LICENSE & CITATION
+
+**Apache License 2.0**.
+If you use PPNO in your research, please cite:
+> García Martínez, A. (2019-2026). *PPNO: Pressurized Pipe Network Optimizer*. GitHub repository: [https://github.com/andresgciamtez/ppno](https://github.com/andresgciamtez/ppno)
 
 ---
+
+2019-2026
