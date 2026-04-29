@@ -294,3 +294,27 @@ def test_scipy_objective_penalty(mock_et, tmp_path):
         with patch('scipy.optimize.differential_evolution') as m_de:
             m_de.side_effect = lambda obj, *args, **kwargs: MagicMock(success=True, x=np.array([0.0]), fun=obj(np.array([0.0])))
             scipy_solver.solve_scipy(opt, ALGORITHM_DE)
+
+def test_new_robust_validations(mock_et, tmp_path):
+    ext = tmp_path / "new_errors.ext"; (tmp_path / "t.inp").write_text("")
+    
+    # 1. Invalid integer option
+    ext.write_text("[INP]\nt.inp\n[OPTIONS]\nMAXRETRIES abc")
+    with pytest.raises(ValueError, match="Expected integer value for 'MAXRETRIES', got 'abc'"):
+        Optimization(ext)
+        
+    # 2. Invalid float option
+    ext.write_text("[INP]\nt.inp\n[OPTIONS]\nREFINER_WORSENING xyz")
+    with pytest.raises(ValueError, match="Expected numeric value for 'REFINER_WORSENING', got 'xyz'"):
+        Optimization(ext)
+        
+    # 3. Malformed catalog line (too short)
+    ext.write_text("[INP]\nt.inp\n[PIPES]\np1 s1\n[CATALOG]\ns1 100 0.1\n[PRESSURES]\nn1 20")
+    with pytest.raises(ValueError, match="Invalid catalog definition"):
+        Optimization(ext)
+
+    # 4. Invalid numeric value in catalog
+    ext.write_text("[INP]\nt.inp\n[PIPES]\np1 s1\n[CATALOG]\ns1 100 0.1 error\n[PRESSURES]\nn1 20")
+    with pytest.raises(ValueError, match="Invalid numeric values in catalog 's1'"):
+        Optimization(ext)
+

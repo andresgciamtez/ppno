@@ -1,7 +1,9 @@
-"""PRESSURIZED PIPE NETWORK OPTIMIZER.
+"""Pressurized Pipe Network Optimizer (PPNO) core module.
 
-A modern Python tool for optimizing pipe network diameters using various
-algorithms (Unit Headloss Heuristic, Differential Evolution, Dual Annealing, NSGA-II).
+This module provides the main `Optimization` class, which serves as the central
+coordinator for the two-stage pipe sizing optimization pipeline. It handles file
+parsing, semantic validation, EPANET hydraulic simulation state, and delegates
+the optimization process to specific heuristic and metaheuristic solvers.
 """
 
 import os
@@ -62,14 +64,21 @@ class Optimization:
     """
 
     def __init__(self, problem_file: Union[str, Path]):
-        """Initializes the optimization problem and performs full validation.
+        """Initialize the optimization problem and perform full semantic validation.
+
+        Reads the problem definition from the `.ext` file, locates the associated EPANET 
+        `.inp` model, and validates all entities (pipes, nodes, catalogs) to ensure 
+        hydraulic and logical consistency before proceeding with optimization.
 
         Args:
-            problem_file: Path to the .ext file containing problem data.
+            problem_file (Union[str, Path]): Absolute or relative path to the `.ext` 
+                configuration file containing the problem definition.
 
         Raises:
-            FileNotFoundError: If the problem or input files are missing.
-            ValueError: If configuration validation fails (syntax, existence, or logic).
+            FileNotFoundError: If the specified `.ext` file or its referenced `.inp` model 
+                cannot be found.
+            ValueError: If the configuration validation fails due to syntax errors, missing 
+                hydraulic entities, or logical inconsistencies (e.g., non-monotonic catalogs).
         """
         self.problem_file = Path(problem_file)
         if not self.problem_file.exists():
@@ -146,8 +155,11 @@ class Optimization:
         """Performs semantic validation of the configuration."""
         errors = []
         
-        # Check Algorithms
+        # Check Algorithms & Options
         alg_map = {'UH', 'DE', 'DA', 'NSGA2', 'DIRECT', 'MOEAD', 'MACO', 'PSO'}
+        int_options = {'MAXRETRIES', 'RETRIES', 'MAXTIME', 'RANDOMSEED', 'SEED', 'POPULATIONSIZE', 'POPSIZE', 'GENERATIONS', 'GENS', 'PATIENCE', 'MAXNOCHANGES', 'MAXTRIALS', 'REFINERITERS', 'REFINERNEIGHBORS'}
+        float_options = {'REFINERWORSENING'}
+
         options = sections.get('OPTIONS', [])
         for line_num, content in options:
             tokens = parser.line_to_tuple(content)
@@ -159,13 +171,26 @@ class Optimization:
                 for val in tokens[1:]:
                     if val.upper() not in alg_map:
                         errors.append(f"Line {line_num}: Unknown algorithm '{val}'")
+            elif key in int_options:
+                if len(tokens) > 1:
+                    try:
+                        int(tokens[1])
+                    except ValueError:
+                        errors.append(f"Line {line_num}: Expected integer value for '{tokens[0]}', got '{tokens[1]}'")
+            elif key in float_options:
+                if len(tokens) > 1:
+                    try:
+                        float(tokens[1])
+                    except ValueError:
+                        errors.append(f"Line {line_num}: Expected numeric value for '{tokens[0]}', got '{tokens[1]}'")
 
         # Check Pipes Existence and Series
         pipes_lines = sections.get('PIPES', [])
         catalog_names = set()
         for _, content in sections.get('CATALOG', []):
             tokens = parser.line_to_tuple(content)
-            if tokens: catalog_names.add(tokens[0])
+            if len(tokens) >= 4:
+                catalog_names.add(tokens[0])
 
         for line_num, content in pipes_lines:
             tokens = parser.line_to_tuple(content)
@@ -202,8 +227,16 @@ class Optimization:
         temp_cat = {}
         for line_num, content in sections.get('CATALOG', []):
             tokens = parser.line_to_tuple(content)
-            if len(tokens) < 4: continue
-            sn, d, r, p = tokens[0], float(tokens[1]), float(tokens[2]), float(tokens[3])
+            if not tokens: continue
+            if len(tokens) < 4:
+                errors.append(f"Line {line_num}: Invalid catalog definition. Expected 'SERIES DIAMETER ROUGHNESS PRICE'")
+                continue
+            try:
+                sn, d, r, p = tokens[0], float(tokens[1]), float(tokens[2]), float(tokens[3])
+            except ValueError:
+                errors.append(f"Line {line_num}: Invalid numeric values in catalog '{tokens[0]}'")
+                continue
+            
             if sn not in temp_cat: temp_cat[sn] = []
             temp_cat[sn].append({'d': d, 'p': p, 'line': line_num})
 
@@ -317,6 +350,8 @@ class Optimization:
         raw_data: Dict[str, List[Tuple[float, float, float]]] = {s: [] for s in required_series}
         for line_num, content in catalog_lines:
             tokens = parser.line_to_tuple(content)
+            if len(tokens) < 4:
+                continue
             sn, d, r, p = tokens[0], tokens[1], tokens[2], tokens[3]
             if sn in required_series:
                 raw_data[sn].append((float(d), float(r), float(p)))
@@ -332,38 +367,51 @@ class Optimization:
         self._current_x = x.astype(np.int32)
         for i, pipe in enumerate(self.pipes):
             link_idx = int(pipe['link_idx'])
+            pipe_id = str(pipe['id'])
             series = self.catalog[str(pipe['series'])]
             size_idx = int(self._current_x[i])
 
             try:
                 et.ENsetlinkvalue(link_idx, et.EN_DIAMETER, float(series[size_idx]['diameter']))
                 et.ENsetlinkvalue(link_idx, et.EN_ROUGHNESS, float(series[size_idx]['roughness']))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error(f"Failed to set hydraulic values for pipe {pipe_id} (index {link_idx}): {e}")
 
     def get_x(self) -> np.ndarray:
-        """Returns a copy of the current vector of diameter indexes."""
+        """Retrieve a copy of the current vector of diameter indexes.
+
+        Returns:
+            np.ndarray: A 1D integer array representing the active sizes for each pipe.
+        """
         return self._current_x.copy()
 
     def check(self, mode: str = 'TF') -> Union[bool, Tuple[bool, np.ndarray], np.ndarray]:
-        """Checks pressure constraints across all time steps.
+        """Simulate the network and evaluate pressure constraints across all time steps.
+
+        This method triggers an EPANET Extended Period Simulation (EPS). It tracks the 
+        maximum pressure deficits at critical nodes and (optionally) the headloss gradients
+        for heuristic algorithms.
 
         Args:
-            mode: 'TF' for boolean status, 'UH' for status and sorted headlosses,
-                  'PD' for nodal pressure deficits.
+            mode (str, optional): Evaluation mode. 
+                - 'TF': Returns a boolean indicating strict overall feasibility (True/False).
+                - 'UH': Returns a tuple `(status, sorted_indices)` for the Unit Headloss heuristic.
+                - 'PD': Returns an array of maximum pressure deficits for each node.
+                Defaults to 'TF'.
 
         Returns:
-            Depending on mode: bool, (bool, np.ndarray), or np.ndarray.
+            Union[bool, Tuple[bool, np.ndarray], np.ndarray]: The evaluation result 
+            structured according to the requested `mode`.
         """
         deficits = np.full(len(self.nodes), -1e10, dtype=np.float32) if mode == 'PD' else None
         max_hls = np.zeros(len(self.pipes), dtype=np.float32) if mode == 'UH' else None
         overall_status = True
 
         try:
+            self.simulation_cycles += 1
             et.ENinitH(0)
             while True:
                 et.ENrunH()
-                self.simulation_cycles += 1
 
                 # Check nodal pressures
                 for i, node in enumerate(self.nodes):
@@ -388,8 +436,9 @@ class Optimization:
 
                 if et.ENnextH() == 0:
                     break
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Hydraulic simulation error in check(): {e}")
+            overall_status = False
 
         if mode == 'UH':
             sorted_indices = np.argsort(max_hls)[::-1]
@@ -399,7 +448,11 @@ class Optimization:
         return overall_status
 
     def get_cost(self) -> float:
-        """Calculates total network cost based on current sizing."""
+        """Calculate the total network investment cost based on current sizing.
+
+        Returns:
+            float: The total cost computed by summing (length * price) for all pipes.
+        """
         total = 0.0
         x = self.get_x()
         for i, pipe in enumerate(self.pipes):
@@ -407,15 +460,42 @@ class Optimization:
         return total
 
     def solve(self) -> Optional[np.ndarray]:
-        """Executes the two-stage optimization pipeline: UH+FLS-H foundation,
-        followed by optional metaheuristic exploration also finished with FLS-H."""
+        """Execute the full two-stage optimization pipeline.
+
+        Orchestrates the mandatory Heuristic Foundation (Unit Headloss + FLS-H) 
+        and the optional Global Exploration using the configured metaheuristics.
+
+        Returns:
+            Optional[np.ndarray]: The best discrete solution vector found, or None 
+            if the heuristic stage fails to find any feasible configuration.
+        """
         self.results = []
         self.simulation_cycles = 0
         logger.info(f"Optimization pipeline started at: {strftime('%H:%M:%S', localtime())}")
 
         # --- STAGE 1: Mandatory Foundation (UH + LS) ---
+        stage1_res = self._run_stage_1()
+        if stage1_res is None:
+            return None
+        
+        overall_best_solution, overall_best_cost = stage1_res
+
+        # --- STAGE 2: Optional Global Exploration (Metaheuristics) ---
+        if self.algorithms:
+            overall_best_solution, overall_best_cost = self._run_stage_2(overall_best_solution, overall_best_cost)
+        else:
+            logger.info("\n>>> STAGE 2 Skipped: No global exploration requested <<<")
+
+        self._print_summary()
+        self.set_x(overall_best_solution)
+        self._handle_success(overall_best_solution)
+        
+        return overall_best_solution
+
+    def _run_stage_1(self) -> Optional[Tuple[np.ndarray, float]]:
+        """Runs the first stage of optimization: Heuristic + Refinement."""
         logger.info("\n" + ">>> STAGE 1: HEURISTIC FOUNDATION (UH + FLS-H) <<<")
-        start_time_s1 = perf_counter()
+        start_time = perf_counter()
         
         # 1a. UH Heuristic
         solution = self._solve_uh()
@@ -426,109 +506,114 @@ class Optimization:
         # 1b. Refinement (FLS-H) - always applied
         solution = self._apply_refinement(solution)
         
-        duration_s1 = perf_counter() - start_time_s1
+        duration = perf_counter() - start_time
         self.set_x(solution)
-        cost_s1 = self.get_cost()
+        cost = self.get_cost()
         
-        logger.info(f"Stage 1 Complete | Cost: {cost_s1:.2f} | Time: {duration_s1:.2f}s")
+        logger.info(f"Stage 1 Complete | Cost: {cost:.2f} | Time: {duration:.2f}s")
         
         self.results.append({
             'Algorithm': 'UH',
             'Attempt': 1,
             'Success': "YES",
-            'Time (s)': f"{duration_s1:.2f}",
+            'Time (s)': f"{duration:.2f}",
             'Simulations': self.simulation_cycles,
-            'Cost': f"{cost_s1:.2f}"
+            'Cost': f"{cost:.2f}"
         })
         self._save_scn_result("UH")
-        
-        overall_best_solution = solution.copy()
-        overall_best_cost = cost_s1
+        return solution, cost
 
-        # --- STAGE 2: Optional Global Exploration (Metaheuristics) ---
-        if self.algorithms:
-            logger.info("\n" + ">>> STAGE 2: OPTIONAL GLOBAL EXPLORATION <<<")
+    def _run_stage_2(self, best_sol: np.ndarray, best_cost: float) -> Tuple[np.ndarray, float]:
+        """Runs the second stage of optimization: Global Exploration."""
+        logger.info("\n" + ">>> STAGE 2: OPTIONAL GLOBAL EXPLORATION <<<")
+        
+        alg_names = {
+            ALGORITHM_DE: 'DE', ALGORITHM_DA: 'DA', ALGORITHM_NSGA2: 'NSGA2',
+            ALGORITHM_DIRECT: 'DIRECT', ALGORITHM_MOEAD: 'MOEAD',
+            ALGORITHM_MACO: 'MACO', ALGORITHM_PSO: 'PSO'
+        }
+
+        for alg_id in self.algorithms:
+            alg_name = alg_names.get(alg_id, 'UNKNOWN')
+            best_sol, best_cost = self._execute_metaheuristic(alg_id, alg_name, best_sol, best_cost)
+
+        # Final refinement to the absolute best solution found
+        logger.info("\n>>> REFINING BEST SOLUTION (FLS-H) <<<")
+        start_time_ref = perf_counter()
+        best_sol = self._apply_refinement(best_sol)
+        duration_ref = perf_counter() - start_time_ref
+        
+        self.set_x(best_sol)
+        refined_cost = self.get_cost()
+        logger.info(f"Refinement Complete | Cost: {refined_cost:.2f} | Time: {duration_ref:.2f}s")
+        
+        return best_sol, refined_cost
+
+    def _execute_metaheuristic(self, alg_id: int, alg_name: str, 
+                               overall_best_sol: np.ndarray, overall_best_cost: float) -> Tuple[np.ndarray, float]:
+        """Handles the retry loop and performance tracking for a single metaheuristic."""
+        best_sol = overall_best_sol
+        best_cost = overall_best_cost
+
+        for attempt in range(1, self.max_retries + 1):
+            logger.info("-" * 40)
+            logger.info(f"ALGORITHM: {alg_name} (Attempt {attempt}/{self.max_retries})")
             
-            alg_names = {
-                ALGORITHM_DE: 'DE', ALGORITHM_DA: 'DA', ALGORITHM_NSGA2: 'NSGA2',
-                ALGORITHM_DIRECT: 'DIRECT', ALGORITHM_MOEAD: 'MOEAD',
-                ALGORITHM_MACO: 'MACO', ALGORITHM_PSO: 'PSO'
-            }
-
-            for alg_id in self.algorithms:
-                alg_name = alg_names.get(alg_id, 'UNKNOWN')
+            start_time = perf_counter()
+            self.simulation_cycles = 0
+            self.algorithm = alg_id
+            
+            logger.info(f"      [SEED] Starting with best cost: {best_cost:.2f}")
+            meta_solution = self._run_meta_algorithm(alg_id, best_sol)
+            duration = perf_counter() - start_time
+            
+            if meta_solution is not None:
+                self.set_x(meta_solution)
+                meta_cost = self.get_cost()
                 
-                for attempt in range(1, self.max_retries + 1):
-                    logger.info("-" * 40)
-                    logger.info(f"ALGORITHM: {alg_name} (Attempt {attempt}/{self.max_retries})")
-                    
-                    start_time = perf_counter()
-                    self.simulation_cycles = 0
-                    self.algorithm = alg_id
-                    
-                    # Run metaheuristic seeded with the current best solution
-                    logger.info(f"      [SEED] Starting with best cost: {overall_best_cost:.2f}")
-                    meta_solution = None
-                    if alg_id in [ALGORITHM_DE, ALGORITHM_DA, ALGORITHM_DIRECT]:
-                        from . import scipy_solver
-                        meta_solution = scipy_solver.solve_scipy(self, alg_id, initial_x=overall_best_solution)
-                    elif alg_id in [ALGORITHM_NSGA2, ALGORITHM_MOEAD, ALGORITHM_MACO, ALGORITHM_PSO]:
-                        from . import pygmo_solver
-                        sol_f, sol_x = (None, None)
-                        if alg_id == ALGORITHM_NSGA2:
-                            sol_f, sol_x = pygmo_solver.nsga2(self, initial_x=overall_best_solution)
-                        elif alg_id == ALGORITHM_MOEAD:
-                            sol_f, sol_x = pygmo_solver.moead(self, initial_x=overall_best_solution)
-                        elif alg_id == ALGORITHM_MACO:
-                            sol_f, sol_x = pygmo_solver.maco(self, initial_x=overall_best_solution)
-                        elif alg_id == ALGORITHM_PSO:
-                            sol_f, sol_x = pygmo_solver.nspso(self, initial_x=overall_best_solution)
-                        
-                        meta_solution = np.array(sol_x, dtype=np.int32) if sol_x is not None else None
-
-                    duration = perf_counter() - start_time
-                    success = meta_solution is not None
-                    
-                    if success:
-                        self.set_x(meta_solution)
-                        meta_cost = self.get_cost()
-                        
-                        if meta_cost < overall_best_cost:
-                            logger.info(f"      [ACCEPTED] Improved cost found: {meta_cost:.2f} (Previous: {overall_best_cost:.2f})")
-                            overall_best_cost = meta_cost
-                            overall_best_solution = meta_solution.copy()
-                        else:
-                            logger.info(f"      [DISCARDED] Cost {meta_cost:.2f} is not an improvement over {overall_best_cost:.2f}")
-                        
-                        self.results.append({
-                            'Algorithm': alg_name, 'Attempt': attempt, 'Success': "YES",
-                            'Time (s)': f"{duration:.2f}", 'Simulations': self.simulation_cycles,
-                            'Cost': f"{meta_cost:.2f}"
-                        })
-                        self._save_scn_result(alg_name)
-                        break
-                    else:
-                        self.results.append({
-                            'Algorithm': alg_name, 'Attempt': attempt, 'Success': "NO",
-                            'Time (s)': f"{duration:.2f}", 'Simulations': self.simulation_cycles, 'Cost': "-"
-                        })
-
-            # Apply refinement to the best solution found in Stage 2
-            logger.info("\n>>> REFINING BEST SOLUTION (FLS-H) <<<")
-            start_time_ref = perf_counter()
-            overall_best_solution = self._apply_refinement(overall_best_solution)
-            duration_ref = perf_counter() - start_time_ref
-            self.set_x(overall_best_solution)
-            refined_cost = self.get_cost()
-            logger.info(f"Refinement Complete | Cost: {refined_cost:.2f} | Time: {duration_ref:.2f}s")
-        else:
-            logger.info("\n>>> STAGE 2 Skipped: No global exploration requested <<<")
-
-        self._print_summary()
-        self.set_x(overall_best_solution)
-        self._handle_success(overall_best_solution)
+                if meta_cost < best_cost:
+                    logger.info(f"      [ACCEPTED] Improved cost found: {meta_cost:.2f} (Previous: {best_cost:.2f})")
+                    best_cost = meta_cost
+                    best_sol = meta_solution.copy()
+                else:
+                    logger.info(f"      [DISCARDED] Cost {meta_cost:.2f} is not an improvement over {best_cost:.2f}")
+                
+                self.results.append({
+                    'Algorithm': alg_name, 'Attempt': attempt, 'Success': "YES",
+                    'Time (s)': f"{duration:.2f}", 'Simulations': self.simulation_cycles,
+                    'Cost': f"{meta_cost:.2f}"
+                })
+                self._save_scn_result(alg_name)
+                break
+            else:
+                self.results.append({
+                    'Algorithm': alg_name, 'Attempt': attempt, 'Success': "NO",
+                    'Time (s)': f"{duration:.2f}", 'Simulations': self.simulation_cycles, 'Cost': "-"
+                })
         
-        return overall_best_solution
+        return best_sol, best_cost
+
+    def _run_meta_algorithm(self, alg_id: int, initial_x: np.ndarray) -> Optional[np.ndarray]:
+        """Dispatches to the specific SciPy or PyGMO solver."""
+        if alg_id in [ALGORITHM_DE, ALGORITHM_DA, ALGORITHM_DIRECT]:
+            from . import scipy_solver
+            return scipy_solver.solve_scipy(self, alg_id, initial_x=initial_x)
+        
+        if alg_id in [ALGORITHM_NSGA2, ALGORITHM_MOEAD, ALGORITHM_MACO, ALGORITHM_PSO]:
+            from . import pygmo_solver
+            sol_x = None
+            if alg_id == ALGORITHM_NSGA2:
+                _, sol_x = pygmo_solver.nsga2(self, initial_x=initial_x)
+            elif alg_id == ALGORITHM_MOEAD:
+                _, sol_x = pygmo_solver.moead(self, initial_x=initial_x)
+            elif alg_id == ALGORITHM_MACO:
+                _, sol_x = pygmo_solver.maco(self, initial_x=initial_x)
+            elif alg_id == ALGORITHM_PSO:
+                _, sol_x = pygmo_solver.nspso(self, initial_x=initial_x)
+            
+            return np.array(sol_x, dtype=np.int32) if sol_x is not None else None
+        
+        return None
 
     def _print_summary(self) -> None:
         """Displays a summary of all optimization runs (aggregated by algorithm)."""
@@ -570,7 +655,15 @@ class Optimization:
         logger.info("=" * 80 + "\n")
 
     def _solve_uh(self) -> Optional[np.ndarray]:
-        """Unit Headloss Heuristic logic."""
+        """Execute the Unit Headloss (UH) heuristic.
+
+        Greedily increases the diameter of pipes with the highest hydraulic gradient 
+        until all pressure constraints are satisfied, establishing a feasible baseline.
+
+        Returns:
+            Optional[np.ndarray]: A feasible diameter index vector, or None if the 
+            algorithm exhausts all maximum diameters without achieving feasibility.
+        """
         logger.info("*** UNIT HEADLOSS HEURISTIC ***")
         self.set_x(np.zeros(self.dimension, dtype=np.int32))
         while True:

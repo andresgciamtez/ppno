@@ -1,166 +1,195 @@
 # PRESSURIZED PIPE NETWORK OPTIMIZER (PPNO)
 
-2019-2026 - Andrés García Martínez (ppnoptimizer@gmail.com)
-Licensed under the Apache License 2.0. http://www.apache.org/licenses/
+2019–2026 – Andrés García Martínez
+Licensed under the Apache License 2.0
+http://www.apache.org/licenses/
 
-## VERSION 0.3.3
-Modernized version featuring a structural 2-stage optimization engine with **FLS-H** local search, metaheuristic population seeding, and incremental result saving in `.scn` format.
+📌 What is PPNO?
 
----
+PPNO is a command-line tool for the cost-optimal design of pressurized water distribution networks, built on top of the EPANET hydraulic simulation engine.
 
-## 🛠️ INSTALLATION
+It solves the classical engineering problem of pipe diameter optimization under hydraulic constraints, where trade-offs between cost and pressure feasibility must be balanced. This problem has been widely studied using evolutionary and hybrid optimization techniques coupled with EPANET-based simulation .
 
-To install the package from the source directory, use `pip`:
+PPNO introduces a hybrid two-stage optimization pipeline that combines:
 
-```bash
-# Standard installation
+Deterministic heuristics (fast feasibility)
+Hydraulically-informed local search (FLS-H)
+Optional global metaheuristics (e.g., DE, NSGA-II)
+🚀 Key Features
+Two-stage hybrid optimization pipeline
+Hydraulically-aware local search (FLS-H)
+Metaheuristic seeding with feasible solutions
+Global evaluation cache (EPANET call reduction)
+Incremental result export in .scn format
+Robust parsing and validation
+Designed for reproducibility and batch execution
+🛠️ Installation
+
+Install from source:
+
 pip install .
 
-# Recommended: Editable mode for developers (changes reflect immediately)
+Recommended (development mode):
+
 pip install -e .
-```
+⚠️ Windows Troubleshooting
 
-### ⚠️ Troubleshooting (Windows): "ppno command not found"
+If ppno is not recognized:
 
-If you are on **Windows** and receive an error saying the `ppno` command is not recognized, it is likely because your Python **Scripts** folder is not in your system's **PATH**.
+[System.Environment]::SetEnvironmentVariable(
+  "Path",
+  $env:Path + ";<PathToYourPythonEnv>\Scripts",
+  "User"
+)
 
-**Options to fix it:**
+Or run:
 
-1.  **Add to PATH (Windows PowerShell):**
-    ```powershell
-    # Permanent change for the current user
-    [System.Environment]::SetEnvironmentVariable("Path", $env:Path + ";<PathToYourPythonOrCondaEnv>\Scripts", "User")
-    ```
-2.  **Run via Python module (Always works on all OS):**
-    ```bash
-    python -m ppno.ppno <problem_file.ext>
-    ```
+python -m ppno.ppno <problem_file.ext>
+📖 Basic Usage
 
----
+Run the optimizer with:
 
-## 📖 BASIC USAGE
-
-To run the optimizer, simply provide the path to your `.ext` problem definition file:
-
-```bash
 ppno problem_definition.ext
-```
+Execution Flow
+Load EPANET model from [INP]
+Run Stage 1 (mandatory)
+Optionally run Stage 2 metaheuristics
+Export results as .scn files
+📁 Outputs
 
-The tool will:
-1. Load the EPANET model specified in the `[INP]` section.
-2. Run the Stage 1 Heuristic Foundation.
-3. (Optional) Run the Stage 2 Global Exploration algorithms.
-4. Save the results for each successful algorithm in EPANET `.scn` format (partial section file).
+PPNO generates lightweight, reusable solution files:
 
-## 📁 OUTPUTS
+<original_inp_name>_result_<algorithm>.scn
+Contents
 
-PPNO focuses on generating lightweight, reusable result files instead of full network models. After each successful algorithm (including the mandatory Stage 1), a `.scn` file is created:
+A standard EPANET [PIPES] section:
 
-- **Filename**: `<original_inp_name>_result_<algorithm_name>.scn`
-- **Content**: A standard EPANET `[PIPES]` section containing:
-    - **ID**: The pipe identifier.
-    - **Diameter**: The optimized diameter from the catalog.
-    - **Roughness**: The corresponding roughness coefficient.
+Pipe ID
+Optimized diameter
+Roughness coefficient
+Why .scn?
+Avoids duplicating full .inp models
+Enables modular post-processing pipelines
+Supports versioning and comparison of solutions
+Seamless reintegration into existing EPANET workflows
+⚙️ Optimization Pipeline
 
-These files are ideal for being imported back into the original EPANET model or for use in automated post-processing scripts.
+PPNO uses a coordinated two-stage architecture:
 
-## 🚀 THE TWO-STAGE OPTIMIZATION PIPELINE
+Stage 1 (Mandatory)
+    UH → FLS-H → Feasible solution x₁
 
-PPNO has moved away from isolated algorithm execution to a coordinated **2-stage pipeline**. This approach ensures that global metaheuristics don't waste time exploring infeasible or low-quality regions of the search space.
+Stage 2 (Optional)
+    Seed(x₁) → Metaheuristics → FLS-H → Final solution
+1️⃣ Stage 1 — Heuristic Foundation & Refinement
 
-### 1. Stage 1: Heuristic Foundation & Initial Refinement (Mandatory)
-The process always starts by building a feasible baseline:
--   **Unit Headloss Heuristic (UH)**: Rapidly finds an initial set of diameters that satisfy pressure constraints.
--   **FLS-H Refinement**: After UH, the **Feasible Local Search – Hybrid** algorithm performs an initial "sharpening" to reduce investment costs while maintaining feasibility.
--   **Result**: A high-quality, feasible solution $x_1$ that serves as the anchor for the rest of the pipeline.
+Builds a high-quality feasible baseline:
 
-### 2. Stage 2: Global Exploration via Hybrid Seeding (Optional)
-If stage 2 metaheuristics (Genetics, DE, etc.) are configured, they perform a global search using an advanced **Seeding Strategy**:
--   **Population Injection**: Instead of starting with a random population, the solver injects $x_1$ into the starting set.
--   **Feasible Variation**: A portion of the initial population is filled with "feasible variants" of $x_1$ (random perturbations that are automatically repaired).
--   **Final Polish**: After the metaheuristic completes, a final pass of the **FLS-H** algorithm is applied to the best global solution found. This ensures that even minor cost-reduction opportunities often missed by global metaheuristics are captured.
--   **Benefits**: By starting "on the shoulders" of a feasible local optimum, global solvers converge significantly faster and focus on finding global improvements rather than struggling with basic feasibility.
--   **Supported Solvers**: `DE`, `DA`, `NSGA2`, `MOEAD`, `MACO`, `PSO`.
+Unit Headloss Heuristic (UH)
+Rapidly generates a feasible diameter configuration
+FLS-H Refinement
+Improves cost while preserving feasibility
 
+➡️ Output:
+A feasible solution x₁, used as the anchor for global search
 
+2️⃣ Stage 2 — Global Exploration (Optional)
 
-## 📜 FLS-H (Feasible Local Search – Hybrid)
+Enhances the baseline using metaheuristics:
 
-The hardware of this new pipeline is the **FLS-H** module. It is a local search algorithm specialized for hydraulic networks:
+Population Injection
+x₁ is inserted into the initial population
+Feasible Variants
+Perturbed versions of x₁ are generated and repaired
+Final Local Polish (FLS-H)
+Ensures no local improvements are missed
+Supported Algorithms
+Differential Evolution (DE)
+Dragonfly Algorithm (DA)
+NSGA-II
+MOEA/D
+MACO
+PSO
+🧠 FLS-H: Feasible Local Search – Hybrid
 
-| Feature | Description |
-| :--- | :--- |
-| **Global Evaluation Cache** | Avoids redundant EPANET simulations by hashing and storing evaluation results across the entire session. |
-| **Hydraulic Rules** | Neighborhood generation targets pipes with high hydraulic potential (gradient) for more efficient cost reduction. |
-| **Fast Constraints** | Filters out obviously invalid solutions (bounds, connectivity) without calling the EPANET engine. |
-| **Stochastic Worsening** | Occasionally accepts small cost increases (<1-2%) to jump out of narrow local minima. |
+FLS-H is the core optimization engine of PPNO.
 
----
+It is a hydraulically-informed local search algorithm designed to:
 
-## ⚙️ CONFIGURATION ([OPTIONS])
+Preserve feasibility at all times
+Minimize expensive EPANET evaluations
+Exploit network structure for efficient cost reduction
+Key Mechanisms
+Feature	Description
+Global Evaluation Cache	Avoids repeated EPANET simulations via hashing
+Hydraulic Awareness	Targets pipes with high gradient impact
+Fast Constraints	Filters invalid candidates before simulation
+Stochastic Worsening	Escapes local minima with controlled cost increases
+⚙️ Configuration (.ext file)
 
-The `.ext` file controls the optional Stage 2 of the pipeline. Example:
+Example:
 
-```ini
 [OPTIONS]
-; --- Heuristic & Local Search (UH / FLS-H) ---
+
+; --- Local Search ---
 RefinerIters 50
 RefinerNeighbors 20
 RefinerWorsening 0.01
 
-; --- General Stage 2 Options ---
+; --- Stage 2 ---
 Algorithm NSGA2 DE
 MaxRetries 3
 MaxTime 120
 RandomSeed 42
 
-; --- PyGMO Solvers Specific Options ---
+; --- PyGMO ---
 PopulationSize 100
 Generations 100
 Patience 10
 MaxTrials 250
-```
+🧪 Design Philosophy
 
-### 1. Heuristic & Local Search (UH / FLS-H)
--   **RefinerIters**: Maximum iterations for the FLS-H local search (default: 50).
--   **RefinerNeighbors**: Number of candidate solutions generated per FLS-H iteration (default: 20).
--   **RefinerWorsening**: Allowed cost worsening fraction (e.g., `0.01` for 1%) to escape local minima (default: 0.01).
+PPNO is built around three core principles:
 
-### 2. General Stage 2 Options (Common to SciPy & PyGMO)
--   **Algorithm**: A space-separated list of metaheuristics (DE, DA, NSGA2, MOEAD, MACO, PSO).
-    -   Example: `Algorithm NSGA2 DE` (Runs both Stage 2 algorithms sequentially).
-    -   Example: `; Algorithm` (Skips Stage 2, running only mandatory Stage 1).
--   **MaxRetries**: Retries for Stage 2 algorithms if they fail to improve the baseline.
--   **MaxTime**: Maximum execution time per algorithm in seconds (default: 120).
--   **RandomSeed**: Integer seed for reproducible results (e.g., `RandomSeed 42`).
+1. Feasibility First
 
-### 3. SciPy Solvers Specific Options
-*(Currently, SciPy algorithms rely entirely on the general options).*
+Solutions are always hydraulically valid before optimization continues.
 
-### 4. PyGMO Solvers Specific Options
--   **PopulationSize**: Number of individuals in the population (default: 100).
--   **Generations**: Number of generations per trial (default: 100).
--   **Patience**: Trials without improvement before early stopping (default: 10).
--   **MaxTrials**: Maximum evolutionary trials allowed (default: 250).
+2. Hybrid Optimization
 
----
+Combines:
 
-## 🛡️ ROBUSTNESS & VALIDATION
+deterministic heuristics
+local search
+global metaheuristics
+3. Simulation as Oracle
 
-PPNO features a defensive programming architecture:
-- **Semantic Validation**: Automatically checks for missing files, invalid sections, orphaned nodes/pipes, and anomalies in the catalog (e.g., non-monotonic diameters, anomalous pricing).
-- **Graceful Failure**: Exits with code `1` on fatal errors, making it safe for CI/CD pipelines and batch scripts.
-- **Resilient Parsing**: Supports UTF-8, UTF-16, and CP1252 encodings gracefully.
-- **Test Coverage**: The optimization engine and parser are backed by an exhaustive test suite targeting high branch coverage (~90%+).
+EPANET is treated as the ground-truth evaluator, ensuring engineering realism.
 
----
+🛡️ Robustness & Validation
+Semantic validation of inputs
+Detection of:
+missing files
+invalid topology
+catalog inconsistencies
+Graceful failure (exit code 1)
+Multi-encoding support (UTF-8, UTF-16, CP1252)
+High test coverage (~90%+)
+📌 Use Cases
 
-## 📜 LICENSE & CITATION
+PPNO is suitable for:
 
-**Apache License 2.0**.
-If you use PPNO in your research, please cite:
-> García Martínez, A. (2019-2026). *PPNO: Pressurized Pipe Network Optimizer*. GitHub repository: [https://github.com/andresgciamtez/ppno](https://github.com/andresgciamtez/ppno)
+✔️ Design of new water distribution networks
+✔️ Rehabilitation and pipe replacement planning
+✔️ Cost optimization studies
+✔️ Academic research and benchmarking
+✔️ Scenario analysis and sensitivity studies
+📜 License & Citation
 
----
+Apache License 2.0
 
-2019-2026
+If you use PPNO in research:
+
+García Martínez, A. (2019–2026).
+PPNO: Pressurized Pipe Network Optimizer
+https://github.com/andresgciamtez/ppno

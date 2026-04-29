@@ -9,9 +9,9 @@ from typing import Dict, List, Tuple, Union
 
 
 class SectionParser:
-    """Parser for header-delimited text files.
+    """Parse header-delimited text files.
 
-    Handles files where sections are marked with [SECTION_NAME] and ended by
+    Handle files where sections are marked with [SECTION_NAME] and ended by
     another section or an [END] tag. Comments preceded by ';' are ignored.
 
     Attributes:
@@ -19,10 +19,10 @@ class SectionParser:
     """
 
     def __init__(self, file_path: Union[str, Path]):
-        """Initializes the parser with a file path.
+        """Initialize the parser with a file path.
 
         Args:
-            file_path: Path to the input file.
+            file_path (Union[str, Path]): Path to the input file.
 
         Raises:
             FileNotFoundError: If the specified file does not exist.
@@ -32,7 +32,7 @@ class SectionParser:
             raise FileNotFoundError(f"Source file not found: {self.file_path}")
 
     def _get_lines(self) -> List[str]:
-        """Helper to read lines with encoding fallback (UTF-8, UTF-16, CP1252)."""
+        """Read lines with encoding fallback (UTF-8, UTF-16, CP1252)."""
         encodings = ['utf-8', 'utf-16', 'cp1252']
         for enc in encodings:
             try:
@@ -45,16 +45,17 @@ class SectionParser:
             return f.readlines()
 
     def read_section(self, section_name: str) -> List[Tuple[int, Tuple[str, ...]]]:
-        """Reads a specific section from the file.
+        """Read a specific section from the file.
 
-        Extracts lines belonging to [section_name], splitting each line into a tuple
+        Extract lines belonging to `[section_name]`, splitting each line into a tuple
         of strings and removing comments, preserving original line numbers.
 
         Args:
-            section_name: Name of the section to read (case-insensitive).
+            section_name (str): Name of the section to read (case-insensitive).
 
         Returns:
-            A list of tuples (line_number, split_content_tuple).
+            List[Tuple[int, Tuple[str, ...]]]: A list of tuples containing the line 
+                number and the split content tuple.
         """
         extracted_data: List[Tuple[int, Tuple[str, ...]]] = []
         is_inside_target_section = False
@@ -79,11 +80,11 @@ class SectionParser:
         return extracted_data
 
     def read(self) -> Dict[str, List[Tuple[int, str]]]:
-        """Reads all sections from the file into a dictionary.
+        """Read all sections from the file into a dictionary.
 
         Returns:
-            A dictionary where keys are section names (in uppercase) and
-            values are lists of (line_number, raw_line_content) tuples.
+            Dict[str, List[Tuple[int, str]]]: A dictionary where keys are section 
+                names (in uppercase) and values are lists of (line_number, raw_line_content) tuples.
         """
         all_sections: Dict[str, List[Tuple[int, str]]] = {}
         current_section_name = None

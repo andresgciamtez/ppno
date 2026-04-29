@@ -37,25 +37,25 @@ class PPNOProblem:
     """
 
     def __init__(self, optimization_instance: Any):
-        """Initializes the problem adapter.
+        """Initialize the problem adapter.
 
         Args:
-            optimization_instance: An instance of the Optimization class.
+            optimization_instance (Any): An instance of the Optimization class.
         """
         self.optimization_instance = optimization_instance
 
     def fitness(self, x: np.ndarray) -> List[float]:
-        """Calculates fitness values for a given solution vector.
+        """Calculate fitness values for a given solution vector.
 
         Objectives:
             1. Total network cost (to be minimized).
             2. Maximum pressure deficit (to be minimized towards <= 0).
 
         Args:
-            x: Vector of diameter indexes.
+            x (np.ndarray): Vector of diameter indexes.
 
         Returns:
-            List containing [cost, max_deficit].
+            List[float]: A list containing `[cost, max_deficit]`.
         """
         diameter_indexes = np.array(x).astype(np.int32)
         self.optimization_instance.set_x(diameter_indexes)
@@ -72,19 +72,23 @@ class PPNOProblem:
         return [cost, max_deficit]
 
     def get_bounds(self) -> Tuple[np.ndarray, np.ndarray]:
-        """Returns the lower and upper bounds for each variable."""
+        """Return the lower and upper bounds for each variable.
+        
+        Returns:
+            Tuple[np.ndarray, np.ndarray]: Lower and upper bounds.
+        """
         return self.optimization_instance.lbound, self.optimization_instance.ubound
 
     def get_nobj(self) -> int:
-        """Returns the number of objectives (Cost and Max Deficit)."""
+        """Return the number of objectives (Cost and Max Deficit)."""
         return 2
 
     def get_nix(self) -> int:
-        """Returns the number of integer variables."""
+        """Return the number of integer variables."""
         return self.optimization_instance.dimension
 
     def get_name(self) -> str:
-        """Returns the descriptive name of the problem."""
+        """Return the descriptive name of the problem."""
         return "Pressurized Pipe Network Optimization (Multi-objective)"
 
 
@@ -92,7 +96,7 @@ def evolve_ppno(optimization_instance: Any,
                 algorithm_factory: Any, 
                 name: str,
                 initial_x: Optional[np.ndarray] = None) -> Tuple[Optional[List[float]], Optional[np.ndarray]]:
-    """Generic evolution loop for PyGMO algorithms.
+    """Execute generic evolution loop for PyGMO algorithms.
     
     Evolves a population of solutions to find the best valid (max_deficit <= 0)
     solution with the minimum cost. This loop handles the multi-objective nature
@@ -105,14 +109,15 @@ def evolve_ppno(optimization_instance: Any,
         ~5% of pipes) to provide genetic diversity around a known good region.
 
     Args:
-        optimization_instance: The main Optimization object.
-        algorithm_factory: A callable returning a PyGMO algorithm instance.
-        name: The human-readable name of the algorithm (for logging).
-        initial_x: Optional starting solution vector.
+        optimization_instance (Any): The main Optimization object.
+        algorithm_factory (Any): A callable returning a PyGMO algorithm instance.
+        name (str): The human-readable name of the algorithm (for logging).
+        initial_x (Optional[np.ndarray]): Optional starting solution vector.
 
     Returns:
-        A tuple containing (Best Fitness [Cost, Deficit], Best Solution Vector)
-        or (None, None) if the optimization fails or finds no valid solutions.
+        Tuple[Optional[List[float]], Optional[np.ndarray]]: A tuple containing 
+            (`[Cost, Deficit]`, Best Solution Vector) or `(None, None)` if the 
+            optimization fails or finds no valid solutions.
     """
     logger.info(f'*** {name} OPTIMIZATION ***')
 
@@ -228,25 +233,25 @@ def evolve_ppno(optimization_instance: Any,
 
 
 def nsga2(optimization_instance: Any, initial_x: Optional[np.ndarray] = None) -> Tuple[Optional[List[float]], Optional[np.ndarray]]:
-    """Runs the Non-dominated Sorting Genetic Algorithm II."""
+    """Run the Non-dominated Sorting Genetic Algorithm II."""
     gens = optimization_instance.config.get('Generations', 100)
     return evolve_ppno(optimization_instance, lambda: pg.nsga2(gen=gens), "NSGA-II", initial_x)
 
 
 def moead(optimization_instance: Any, initial_x: Optional[np.ndarray] = None) -> Tuple[Optional[List[float]], Optional[np.ndarray]]:
-    """Runs Multi-Objective Evolutionary Algorithm based on Decomposition."""
+    """Run Multi-Objective Evolutionary Algorithm based on Decomposition."""
     gens = optimization_instance.config.get('Generations', 100)
     return evolve_ppno(optimization_instance, lambda: pg.moead(gen=gens), "MOEAD", initial_x)
 
 
 def maco(optimization_instance: Any, initial_x: Optional[np.ndarray] = None) -> Tuple[Optional[List[float]], Optional[np.ndarray]]:
-    """Runs Multi-objective Ant Colony Optimizer."""
+    """Run Multi-objective Ant Colony Optimizer."""
     gens = optimization_instance.config.get('Generations', 100)
     return evolve_ppno(optimization_instance, lambda: pg.maco(gen=gens), "MACO", initial_x)
 
 
 def nspso(optimization_instance: Any, initial_x: Optional[np.ndarray] = None) -> Tuple[Optional[List[float]], Optional[np.ndarray]]:
-    """Runs Non-dominated Sorting Particle Swarm Optimizer."""
+    """Run Non-dominated Sorting Particle Swarm Optimizer."""
     gens = optimization_instance.config.get('Generations', 100)
     return evolve_ppno(optimization_instance, lambda: pg.nspso(gen=gens), "NSP-SO (PSO)", initial_x)
 
