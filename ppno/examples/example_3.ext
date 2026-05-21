@@ -1,6 +1,6 @@
 [TITLE]
 ; Free text title for the optimization case.
-Optimization of the Balerma Irrigation Network (Reca & Martínez, 2006)
+Optimization of the Balerma Irrigation Network (Reca & MartÃ­nez, 2006)
 
 [INP]
 ; EPANET .inp model file. Relative paths may be written from the current
@@ -11,7 +11,6 @@ Optimization of the Balerma Irrigation Network (Reca & Martínez, 2006)
 ; Optional section. If Algorithm is omitted, PPNO only runs the mandatory
 ; Unit Headloss heuristic and FLS-H local refinement.
 ; Available algorithms: DE DA DIRECT NSGA2 MOEAD MACO PSO
-; NSGA2, MOEAD, MACO, and PSO require the optional PyGMO extra: pip install ".[mo]"
 Algorithm DE DA NSGA2 MOEAD MACO PSO
 
 [PIPES]

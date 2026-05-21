@@ -14,8 +14,25 @@ ALGORITHM_PSO = 7      # PyGMO: Non-dominated Sorting Particle Swarm Optimizer
 PENALTY_VALUE = 1e9          # Base penalty added to infeasible solutions in SciPy
 MAX_RETRIES = 3              # Default number of retries if an algorithm fails to improve the baseline
 MAX_ALGORITHM_TIME = 120    # Maximum time (in seconds) allowed per algorithm execution
+RANDOM_SEED = None           # Set an integer to make NumPy and PyGMO runs reproducible
+POPULATION_SIZE = 100        # Number of individuals in PyGMO populations
+GENERATIONS = 100            # PyGMO generations per evolution trial
+PATIENCE = 10                # Trials without improvement before stopping PyGMO evolution
+MAX_TRIALS = 250             # Maximum PyGMO evolution trials per algorithm attempt
 
 # Local Search (FLS-H) Settings
 LS_MAX_ITER = 50                 # Maximum iterations for the refinement loop
 LS_ACCEPTANCE_THRESHOLD = 0.01   # Percentage (0.01 = 1%) of allowed cost worsening to escape local minima
 LS_NEIGHBORHOOD_SIZE = 20        # Number of mutated candidate solutions generated per iteration
+
+DEFAULT_CONFIG = {
+    'MaxTime': MAX_ALGORITHM_TIME,
+    'RandomSeed': RANDOM_SEED,
+    'PopulationSize': POPULATION_SIZE,
+    'Generations': GENERATIONS,
+    'Patience': PATIENCE,
+    'MaxTrials': MAX_TRIALS,
+    'RefinerIters': LS_MAX_ITER,
+    'RefinerNeighbors': LS_NEIGHBORHOOD_SIZE,
+    'RefinerWorsening': LS_ACCEPTANCE_THRESHOLD,
+}

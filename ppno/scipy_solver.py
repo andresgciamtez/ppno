@@ -10,7 +10,7 @@ from time import perf_counter
 import numpy as np
 from .constants import (
     ALGORITHM_DE, ALGORITHM_DA, ALGORITHM_DIRECT, 
-    PENALTY_VALUE
+    MAX_ALGORITHM_TIME, PENALTY_VALUE
 )
 
 # Logger configuration
@@ -50,7 +50,7 @@ def solve_scipy(opt_instance, alg_id: int, initial_x: Optional[np.ndarray] = Non
     start_time = perf_counter()
 
     def objective(x_params):
-        max_time = opt_instance.config.get('MaxTime', 120)
+        max_time = opt_instance.config.get('MaxTime', MAX_ALGORITHM_TIME)
         if perf_counter() - start_time > max_time:
             raise SolverTimeoutError(f"Time limit of {max_time}s reached.")
         opt_instance.set_x(np.round(x_params).astype(np.int32))

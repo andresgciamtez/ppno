@@ -11,7 +11,6 @@ Optimization of the Hanoi Network (Fujiwara & Khang, 1990)
 ; Optional section. If Algorithm is omitted, PPNO only runs the mandatory
 ; Unit Headloss heuristic and FLS-H local refinement.
 ; Available algorithms: DE DA DIRECT NSGA2 MOEAD MACO PSO
-; NSGA2, MOEAD, MACO, and PSO require the optional PyGMO extra: pip install ".[mo]"
 Algorithm DE
 
 [PIPES]

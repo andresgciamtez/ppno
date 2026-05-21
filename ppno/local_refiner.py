@@ -9,6 +9,8 @@ import logging
 import numpy as np
 from typing import Any, List, Dict, Tuple, Optional
 
+from .constants import LS_ACCEPTANCE_THRESHOLD, LS_MAX_ITER, LS_NEIGHBORHOOD_SIZE
+
 # Logger configuration
 logger = logging.getLogger(__name__)
 
@@ -42,9 +44,9 @@ class LocalRefiner:
         """
         self.simulation = simulation
         config = config or {}
-        self.max_iter = config.get('max_iter', 50)
-        self.acceptance_threshold = config.get('acceptance_threshold', 0.01)
-        self.neighborhood_size = config.get('neighborhood_size', 20)
+        self.max_iter = config.get('max_iter', LS_MAX_ITER)
+        self.acceptance_threshold = config.get('acceptance_threshold', LS_ACCEPTANCE_THRESHOLD)
+        self.neighborhood_size = config.get('neighborhood_size', LS_NEIGHBORHOOD_SIZE)
         self.cache = {}
 
     def refine(self, x0: np.ndarray) -> np.ndarray:

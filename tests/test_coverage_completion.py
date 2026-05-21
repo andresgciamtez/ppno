@@ -35,7 +35,7 @@ def mock_et():
 def test_ppno_missing_branches_corrected(mock_et, tmp_path):
     ext = tmp_path / "comp.ext"; (tmp_path / "t.inp").write_text("")
     # Valid minimal content
-    ext.write_text("[INP]\nt.inp\n[OPTIONS]\nREPORT YES\n[PIPES]\np1 s1\n[CATALOG]\ns1 100 0.1 10\ns1 200 0.1 20\n[PRESSURES]\nn1 20")
+    ext.write_text("[INP]\nt.inp\n[PIPES]\np1 s1\n[CATALOG]\ns1 100 0.1 10\ns1 200 0.1 20\n[PRESSURES]\nn1 20")
     
     opt = Optimization(ext)
     assert opt.config['MaxTime'] == 120
@@ -50,7 +50,7 @@ def test_ppno_missing_branches_corrected(mock_et, tmp_path):
     with patch.object(Optimization, 'check', return_value=(False, [0])):
         assert opt._solve_uh() is None
 
-def test_pygmo_missing_branches_corrected():
+def test_pygmo_evolve_recovers_after_failed_trial():
     opt = MagicMock()
     opt.pipes = np.array([(0, 'p1', 100.0, 's1')], dtype=[('link_idx', 'i4'), ('id', 'U16'), ('length', 'f4'), ('series', 'U16')])
     opt.catalog = {'s1': np.sort(np.array([(100, 0.1, 10), (200, 0.1, 20)], dtype=[('diameter', 'f4'), ('roughness', 'f4'), ('price', 'f4')]), order='diameter')}
@@ -135,7 +135,7 @@ def test_section_parser_extra(tmp_path):
 
 def test_optimization_full_flow(mock_et, tmp_path):
     ext = tmp_path / "full.ext"; (tmp_path / "t.inp").write_text("")
-    ext.write_text("[INP]\nt.inp\n[OPTIONS]\nALGORITHMS DE\nREPORT YES\n[PIPES]\np1 s1\n[CATALOG]\ns1 100 0.1 20\ns1 200 0.1 10\n[PRESSURES]\nn1 20")
+    ext.write_text("[INP]\nt.inp\n[OPTIONS]\nALGORITHMS DE\n[PIPES]\np1 s1\n[CATALOG]\ns1 100 0.1 20\ns1 200 0.1 10\n[PRESSURES]\nn1 20")
     
     opt = Optimization(ext)
     opt.set_x(np.array([0]))
@@ -154,9 +154,9 @@ def test_optimization_full_flow(mock_et, tmp_path):
 
 def test_optimization_options_variants(mock_et, tmp_path):
     ext = tmp_path / "opt.ext"; (tmp_path / "t.inp").write_text("")
-    ext.write_text("[INP]\nt.inp\n[OPTIONS]\nRETRIES 5\nGENERATERPT YES\n[PIPES]\np1 s1\n[CATALOG]\ns1 100 0.1 10\n[PRESSURES]\nn1 20")
+    ext.write_text("[INP]\nt.inp\n[OPTIONS]\nALGORITHMS DE PSO\n[PIPES]\np1 s1\n[CATALOG]\ns1 100 0.1 10\n[PRESSURES]\nn1 20")
     opt = Optimization(ext)
-    assert opt.max_retries == 5
+    assert len(opt.algorithms) == 2
     assert opt.config['MaxTime'] == 120
 
 def test_all_pygmo_algorithms(mock_et, tmp_path):
@@ -298,14 +298,14 @@ def test_scipy_objective_penalty(mock_et, tmp_path):
 def test_new_robust_validations(mock_et, tmp_path):
     ext = tmp_path / "new_errors.ext"; (tmp_path / "t.inp").write_text("")
     
-    # 1. Invalid integer option
+    # 1. Unsupported numeric option
     ext.write_text("[INP]\nt.inp\n[OPTIONS]\nMAXRETRIES abc")
-    with pytest.raises(ValueError, match="Expected integer value for 'MAXRETRIES', got 'abc'"):
+    with pytest.raises(ValueError, match="Unsupported option 'MAXRETRIES'"):
         Optimization(ext)
         
-    # 2. Invalid float option
+    # 2. Unsupported refiner option
     ext.write_text("[INP]\nt.inp\n[OPTIONS]\nREFINER_WORSENING xyz")
-    with pytest.raises(ValueError, match="Expected numeric value for 'REFINER_WORSENING', got 'xyz'"):
+    with pytest.raises(ValueError, match="Unsupported option 'REFINER_WORSENING'"):
         Optimization(ext)
         
     # 3. Malformed catalog line (too short)

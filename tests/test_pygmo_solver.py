@@ -91,7 +91,7 @@ def test_algorithm_wrappers_execution(mock_opt, mock_pg):
         assert mock_pg.nspso.called
 
 def test_evolve_ppno_early_exit(mock_opt, mock_pg):
-    # Coverage for line 183 (MAX_NO_CHANGES break)
+    # Coverage for the patience-based convergence break
     m_prob = MagicMock()
     mock_pg.problem.return_value = m_prob
     m_pop = MagicMock()

@@ -9,29 +9,18 @@ from time import perf_counter
 from typing import Tuple, Optional, List, Any
 
 import numpy as np
-try:
-    import pygmo as pg
-except ImportError:
-    pg = None
+import pygmo as pg
+
+from .constants import (
+    GENERATIONS,
+    MAX_ALGORITHM_TIME,
+    MAX_TRIALS,
+    PATIENCE,
+    POPULATION_SIZE,
+)
 
 # Logger configuration
 logger = logging.getLogger(__name__)
-
-# Default Evolution Parameters
-GENERATIONS_PER_TRIAL = 100
-POPULATION_SIZE = 100
-MAX_TRIALS = 250
-MAX_NO_CHANGES = 10
-
-
-def _ensure_pygmo_available() -> None:
-    """Raise a clear error when the optional PyGMO extra is not installed."""
-    if pg is None:
-        raise ImportError(
-            "PyGMO algorithms require the optional dependency 'pygmo'. "
-            "Install it with: pip install ppno[mo]"
-        )
-
 
 class PPNOProblem:
     """User-Defined Problem (UDP) for PyGMO integration.
@@ -127,7 +116,6 @@ def evolve_ppno(optimization_instance: Any,
             optimization fails or finds no valid solutions.
     """
     logger.info(f'*** {name} OPTIMIZATION ***')
-    _ensure_pygmo_available()
 
     start_time = perf_counter()
 
@@ -150,7 +138,7 @@ def evolve_ppno(optimization_instance: Any,
 
     # Initialize algorithm and population
     algorithm = pg.algorithm(algorithm_factory())
-    pop_size = optimization_instance.config.get('PopulationSize', 100)
+    pop_size = optimization_instance.config.get('PopulationSize', POPULATION_SIZE)
     population = pg.population(prob, size=pop_size)
 
     # Seed population with the initial solution and feasible variations
@@ -179,7 +167,7 @@ def evolve_ppno(optimization_instance: Any,
                                        optimization_instance.ubound[idx])
             population.set_x(i, variant)
 
-    max_trials = optimization_instance.config.get('MaxTrials', 250)
+    max_trials = optimization_instance.config.get('MaxTrials', MAX_TRIALS)
     
     while True:
         trials += 1
@@ -191,7 +179,7 @@ def evolve_ppno(optimization_instance: Any,
                 logger.warning("Terminated: Maximum trials reached.")
                 break
             continue
-        total_generations += optimization_instance.config.get('Generations', 100)
+        total_generations += optimization_instance.config.get('Generations', GENERATIONS)
 
         # Search for the best valid solution in the current population
         fitness_values = population.get_f()
@@ -220,8 +208,8 @@ def evolve_ppno(optimization_instance: Any,
 
         # Stopping criteria check
         elapsed_time = perf_counter() - start_time
-        max_time = optimization_instance.config.get('MaxTime', 120)
-        patience = optimization_instance.config.get('Patience', 10)
+        max_time = optimization_instance.config.get('MaxTime', MAX_ALGORITHM_TIME)
+        patience = optimization_instance.config.get('Patience', PATIENCE)
         
         if elapsed_time >= max_time:
             logger.warning("Terminated: Maximum time reached.")
@@ -241,24 +229,24 @@ def evolve_ppno(optimization_instance: Any,
 
 def nsga2(optimization_instance: Any, initial_x: Optional[np.ndarray] = None) -> Tuple[Optional[List[float]], Optional[np.ndarray]]:
     """Run the Non-dominated Sorting Genetic Algorithm II."""
-    gens = optimization_instance.config.get('Generations', 100)
+    gens = optimization_instance.config.get('Generations', GENERATIONS)
     return evolve_ppno(optimization_instance, lambda: pg.nsga2(gen=gens), "NSGA-II", initial_x)
 
 
 def moead(optimization_instance: Any, initial_x: Optional[np.ndarray] = None) -> Tuple[Optional[List[float]], Optional[np.ndarray]]:
     """Run Multi-Objective Evolutionary Algorithm based on Decomposition."""
-    gens = optimization_instance.config.get('Generations', 100)
+    gens = optimization_instance.config.get('Generations', GENERATIONS)
     return evolve_ppno(optimization_instance, lambda: pg.moead(gen=gens), "MOEAD", initial_x)
 
 
 def maco(optimization_instance: Any, initial_x: Optional[np.ndarray] = None) -> Tuple[Optional[List[float]], Optional[np.ndarray]]:
     """Run Multi-objective Ant Colony Optimizer."""
-    gens = optimization_instance.config.get('Generations', 100)
+    gens = optimization_instance.config.get('Generations', GENERATIONS)
     return evolve_ppno(optimization_instance, lambda: pg.maco(gen=gens), "MACO", initial_x)
 
 
 def nspso(optimization_instance: Any, initial_x: Optional[np.ndarray] = None) -> Tuple[Optional[List[float]], Optional[np.ndarray]]:
     """Run Non-dominated Sorting Particle Swarm Optimizer."""
-    gens = optimization_instance.config.get('Generations', 100)
+    gens = optimization_instance.config.get('Generations', GENERATIONS)
     return evolve_ppno(optimization_instance, lambda: pg.nspso(gen=gens), "NSP-SO (PSO)", initial_x)
 

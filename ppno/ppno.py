@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Optional, Union, Any
 
 import numpy as np
+import pygmo as pg
 try:
     from entoolkit import toolkit as et
     # Support for newer versions where functions moved to legacy
@@ -43,15 +44,13 @@ if __package__:
     from .constants import (
         ALGORITHM_UH, ALGORITHM_DE, ALGORITHM_DA, ALGORITHM_NSGA2,
         ALGORITHM_DIRECT, ALGORITHM_MOEAD, ALGORITHM_MACO,
-        ALGORITHM_PSO, MAX_RETRIES,
-        LS_MAX_ITER, LS_ACCEPTANCE_THRESHOLD, LS_NEIGHBORHOOD_SIZE
+        ALGORITHM_PSO, MAX_RETRIES, DEFAULT_CONFIG
     )
 else:
     from ppno.constants import (
         ALGORITHM_UH, ALGORITHM_DE, ALGORITHM_DA, ALGORITHM_NSGA2,
         ALGORITHM_DIRECT, ALGORITHM_MOEAD, ALGORITHM_MACO,
-        ALGORITHM_PSO, MAX_RETRIES,
-        LS_MAX_ITER, LS_ACCEPTANCE_THRESHOLD, LS_NEIGHBORHOOD_SIZE
+        ALGORITHM_PSO, MAX_RETRIES, DEFAULT_CONFIG
     )
 
 ALGORITHM_BY_NAME = {
@@ -68,18 +67,6 @@ ALGORITHM_BY_NAME = {
 ALGORITHM_NAMES = {value: key for key, value in ALGORITHM_BY_NAME.items()}
 SCIPY_ALGORITHMS = {ALGORITHM_DE, ALGORITHM_DA, ALGORITHM_DIRECT}
 PYGMO_ALGORITHMS = {ALGORITHM_NSGA2, ALGORITHM_MOEAD, ALGORITHM_MACO, ALGORITHM_PSO}
-
-DEFAULT_CONFIG = {
-    'MaxTime': 120,
-    'RandomSeed': None,
-    'PopulationSize': 100,
-    'Generations': 100,
-    'Patience': 10,
-    'MaxTrials': 250,
-    'RefinerIters': LS_MAX_ITER,
-    'RefinerNeighbors': LS_NEIGHBORHOOD_SIZE,
-    'RefinerWorsening': LS_ACCEPTANCE_THRESHOLD,
-}
 
 
 class Optimization:
@@ -170,6 +157,7 @@ class Optimization:
 
             # 4. Load Data
             self._load_options(sections.get('OPTIONS', []), parser)
+            self._apply_random_seed()
 
             logger.info(f"Loading optimization problem: {self.problem_file}")
             logger.info("-" * 80)
@@ -197,8 +185,7 @@ class Optimization:
 
         # Validate option values early so loading can stay simple.
         algorithm_names = set(ALGORITHM_BY_NAME)
-        int_options = {'MAXRETRIES', 'RETRIES', 'MAXTIME', 'RANDOMSEED', 'SEED', 'POPULATIONSIZE', 'POPSIZE', 'GENERATIONS', 'GENS', 'PATIENCE', 'MAXNOCHANGES', 'MAXTRIALS', 'REFINERITERS', 'REFINERNEIGHBORS'}
-        float_options = {'REFINERWORSENING'}
+        supported_options = {'ALGORITHM', 'ALGORITHMS'}
 
         options = sections.get('OPTIONS', [])
         for line_num, content in options:
@@ -207,22 +194,12 @@ class Optimization:
             tokens = [t for t in tokens if t != '=']
             if not tokens: continue
             key = tokens[0].upper().replace('_', '')
-            if key in ['ALGORITHM', 'ALGORITHMS']:
+            if key in supported_options:
                 for val in tokens[1:]:
                     if val.upper() not in algorithm_names:
                         errors.append(f"Line {line_num}: Unknown algorithm '{val}'")
-            elif key in int_options:
-                if len(tokens) > 1:
-                    try:
-                        int(tokens[1])
-                    except ValueError:
-                        errors.append(f"Line {line_num}: Expected integer value for '{tokens[0]}', got '{tokens[1]}'")
-            elif key in float_options:
-                if len(tokens) > 1:
-                    try:
-                        float(tokens[1])
-                    except ValueError:
-                        errors.append(f"Line {line_num}: Expected numeric value for '{tokens[0]}', got '{tokens[1]}'")
+            else:
+                errors.append(f"Line {line_num}: Unsupported option '{tokens[0]}'. [OPTIONS] only supports Algorithm")
 
         # Check Pipes Existence and Series
         pipes_lines = sections.get('PIPES', [])
@@ -315,38 +292,15 @@ class Optimization:
                     if ALGORITHM_BY_NAME[v.upper()] != ALGORITHM_UH
                 ]
                 logger.info(f"Optional Metaheuristics: {', '.join(values)}")
-            elif key in ['MAXRETRIES', 'RETRIES']:
-                if values:
-                    self.max_retries = int(values[0])
-                    logger.info(f"Max Retries: {self.max_retries}")
-            elif key in ['MAXTIME']:
-                if values:
-                    self.config['MaxTime'] = int(values[0])
-                    logger.info(f"MaxTime: {self.config['MaxTime']}s")
-            elif key in ['RANDOMSEED', 'SEED']:
-                if values:
-                    self.config['RandomSeed'] = int(values[0])
-                    np.random.seed(self.config['RandomSeed'])
-                    try:
-                        import pygmo as pg
-                        pg.set_global_rng_seed(self.config['RandomSeed'])
-                    except ImportError:
-                        pass
-                    logger.info(f"RandomSeed: {self.config['RandomSeed']}")
-            elif key in ['POPULATIONSIZE', 'POPSIZE']:
-                if values: self.config['PopulationSize'] = int(values[0])
-            elif key in ['GENERATIONS', 'GENS']:
-                if values: self.config['Generations'] = int(values[0])
-            elif key in ['PATIENCE', 'MAXNOCHANGES']:
-                if values: self.config['Patience'] = int(values[0])
-            elif key in ['MAXTRIALS']:
-                if values: self.config['MaxTrials'] = int(values[0])
-            elif key in ['REFINERITERS']:
-                if values: self.config['RefinerIters'] = int(values[0])
-            elif key in ['REFINERNEIGHBORS']:
-                if values: self.config['RefinerNeighbors'] = int(values[0])
-            elif key in ['REFINERWORSENING']:
-                if values: self.config['RefinerWorsening'] = float(values[0])
+
+    def _apply_random_seed(self) -> None:
+        """Apply the optional global random seed configured in constants.py."""
+        seed = self.config.get('RandomSeed')
+        if seed is None:
+            return
+        np.random.seed(seed)
+        pg.set_global_rng_seed(seed)
+        logger.info(f"RandomSeed: {seed}")
 
     def _load_pipes(self, pipe_lines: List[Tuple[int, str]], parser: sp.SectionParser) -> None:
         """Parses the PIPES section."""

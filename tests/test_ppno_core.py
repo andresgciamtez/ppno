@@ -8,7 +8,8 @@ from unittest.mock import MagicMock, patch
 from ppno.ppno import Optimization, main
 from ppno.constants import (
     ALGORITHM_UH, ALGORITHM_DE, ALGORITHM_DA, ALGORITHM_NSGA2, 
-    ALGORITHM_MOEAD, ALGORITHM_MACO, ALGORITHM_PSO, ALGORITHM_DIRECT
+    ALGORITHM_MOEAD, ALGORITHM_MACO, ALGORITHM_PSO, ALGORITHM_DIRECT,
+    MAX_RETRIES
 )
 
 @pytest.fixture
@@ -62,10 +63,10 @@ def test_init_all_branches(mock_et, tmp_path):
 def test_options_empty_and_retries(mock_et, tmp_path):
     # Lines 133, 138, 151-152
     ext = tmp_path / "opt.ext"
-    ext.write_text("[INP]\ntest.inp\n[OPTIONS]\n \n = \nRETRIES 5\nALGORITHMS DE MACO PSO\n")
+    ext.write_text("[INP]\ntest.inp\n[OPTIONS]\n \n = \nALGORITHMS DE MACO PSO\n")
     (tmp_path / "test.inp").write_text("")
     opt = Optimization(ext)
-    assert opt.max_retries == 5
+    assert opt.max_retries == MAX_RETRIES
     assert len(opt.algorithms) == 3
 
 def test_inp_path_can_resolve_from_cwd(mock_et, tmp_path, monkeypatch):
