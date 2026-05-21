@@ -8,6 +8,7 @@ the optimization process to specific heuristic and metaheuristic solvers.
 
 import os
 import sys
+import argparse
 import logging
 from time import perf_counter, localtime, strftime
 from pathlib import Path
@@ -24,20 +25,61 @@ except ImportError:
         from entoolkit import legacy as et
     except ImportError:
         import entoolkit as et
-from . import section_parser as sp
-from .local_refiner import LocalRefiner
+
+if __package__:
+    from . import section_parser as sp
+    from .local_refiner import LocalRefiner
+else:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from ppno import section_parser as sp
+    from ppno.local_refiner import LocalRefiner
 
 # Logger configuration
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
 # Constants
-from .constants import (
-    ALGORITHM_UH, ALGORITHM_DE, ALGORITHM_DA, ALGORITHM_NSGA2,
-    ALGORITHM_DIRECT, ALGORITHM_MOEAD, ALGORITHM_MACO,
-    ALGORITHM_PSO, MAX_RETRIES,
-    LS_MAX_ITER, LS_ACCEPTANCE_THRESHOLD, LS_NEIGHBORHOOD_SIZE
-)
+if __package__:
+    from .constants import (
+        ALGORITHM_UH, ALGORITHM_DE, ALGORITHM_DA, ALGORITHM_NSGA2,
+        ALGORITHM_DIRECT, ALGORITHM_MOEAD, ALGORITHM_MACO,
+        ALGORITHM_PSO, MAX_RETRIES,
+        LS_MAX_ITER, LS_ACCEPTANCE_THRESHOLD, LS_NEIGHBORHOOD_SIZE
+    )
+else:
+    from ppno.constants import (
+        ALGORITHM_UH, ALGORITHM_DE, ALGORITHM_DA, ALGORITHM_NSGA2,
+        ALGORITHM_DIRECT, ALGORITHM_MOEAD, ALGORITHM_MACO,
+        ALGORITHM_PSO, MAX_RETRIES,
+        LS_MAX_ITER, LS_ACCEPTANCE_THRESHOLD, LS_NEIGHBORHOOD_SIZE
+    )
+
+ALGORITHM_BY_NAME = {
+    'UH': ALGORITHM_UH,
+    'DE': ALGORITHM_DE,
+    'DA': ALGORITHM_DA,
+    'NSGA2': ALGORITHM_NSGA2,
+    'DIRECT': ALGORITHM_DIRECT,
+    'MOEAD': ALGORITHM_MOEAD,
+    'MACO': ALGORITHM_MACO,
+    'PSO': ALGORITHM_PSO,
+}
+
+ALGORITHM_NAMES = {value: key for key, value in ALGORITHM_BY_NAME.items()}
+SCIPY_ALGORITHMS = {ALGORITHM_DE, ALGORITHM_DA, ALGORITHM_DIRECT}
+PYGMO_ALGORITHMS = {ALGORITHM_NSGA2, ALGORITHM_MOEAD, ALGORITHM_MACO, ALGORITHM_PSO}
+
+DEFAULT_CONFIG = {
+    'MaxTime': 120,
+    'RandomSeed': None,
+    'PopulationSize': 100,
+    'Generations': 100,
+    'Patience': 10,
+    'MaxTrials': 250,
+    'RefinerIters': LS_MAX_ITER,
+    'RefinerNeighbors': LS_NEIGHBORHOOD_SIZE,
+    'RefinerWorsening': LS_ACCEPTANCE_THRESHOLD,
+}
 
 
 class Optimization:
@@ -93,15 +135,21 @@ class Optimization:
         
         inp_line_num, inp_raw_path = sections['INP'][0]
         inp_path = Path(inp_raw_path)
-        if not inp_path.exists():
-            # If not found at the specified path, try relative to the .ext file (only filename)
-            inp_path = self.problem_file.parent / inp_path.name
+        if not inp_path.is_absolute():
+            candidates = [
+                inp_path,
+                self.problem_file.parent / inp_path,
+                self.problem_file.parent / inp_path.name,
+            ]
+            inp_path = next((candidate for candidate in candidates if candidate.exists()), candidates[-1])
             
         if not inp_path.exists():
              raise FileNotFoundError(f"Line {inp_line_num}: EPANET INP file not found: {inp_raw_path}")
 
         self.inp_file = inp_path
         self.algorithm = ALGORITHM_UH
+        self.best_algorithm_name = ALGORITHM_NAMES[ALGORITHM_UH]
+        self.config = DEFAULT_CONFIG.copy()
 
         # 2. Open Toolkit for entity validation
         rpt = os.devnull
@@ -116,37 +164,29 @@ class Optimization:
         except Exception:
             pass
 
-        # 3. Comprehensive Validation
-        self._validate_config(sections, parser)
+        try:
+            # 3. Comprehensive Validation
+            self._validate_config(sections, parser)
 
-        # 4. Load Data
-        self._load_options(sections.get('OPTIONS', []), parser)
+            # 4. Load Data
+            self._load_options(sections.get('OPTIONS', []), parser)
 
-        logger.info(f"Loading optimization problem: {self.problem_file}")
-        logger.info("-" * 80)
-        logger.info(f"NETWORK DATA: {self.inp_file}")
+            logger.info(f"Loading optimization problem: {self.problem_file}")
+            logger.info("-" * 80)
+            logger.info(f"NETWORK DATA: {self.inp_file}")
 
-        self._load_pipes(sections.get('PIPES', []), parser)
-        self._load_pressures(sections.get('PRESSURES', []), parser)
-        self._load_catalog(sections.get('CATALOG', []), parser)
+            self._load_pipes(sections.get('PIPES', []), parser)
+            self._load_pressures(sections.get('PRESSURES', []), parser)
+            self._load_catalog(sections.get('CATALOG', []), parser)
 
-        self.dimension = len(self.pipes)
-        self._current_x = np.zeros(self.dimension, dtype=np.int32)
-        self.lbound = np.zeros(self.dimension, dtype=np.int32)
-        self.ubound = np.array([len(self.catalog[str(p['series'])]) - 1 for p in self.pipes], dtype=np.int32)
-        
-        self.config = {
-            'MaxTime': 120,
-            'RandomSeed': None,
-            'PopulationSize': 100,
-            'Generations': 100,
-            'Patience': 10,
-            'MaxTrials': 250,
-            'RefinerIters': LS_MAX_ITER,
-            'RefinerNeighbors': LS_NEIGHBORHOOD_SIZE,
-            'RefinerWorsening': LS_ACCEPTANCE_THRESHOLD
-        }
-        
+            self.dimension = len(self.pipes)
+            self._current_x = np.zeros(self.dimension, dtype=np.int32)
+            self.lbound = np.zeros(self.dimension, dtype=np.int32)
+            self.ubound = np.array([len(self.catalog[str(p['series'])]) - 1 for p in self.pipes], dtype=np.int32)
+        except Exception:
+            self.close()
+            raise
+
         self.simulation_cycles = 0
         self.results = []
         logger.info("-" * 80)
@@ -154,9 +194,9 @@ class Optimization:
     def _validate_config(self, sections: Dict[str, List[Tuple[int, str]]], parser: sp.SectionParser) -> None:
         """Performs semantic validation of the configuration."""
         errors = []
-        
-        # Check Algorithms & Options
-        alg_map = {'UH', 'DE', 'DA', 'NSGA2', 'DIRECT', 'MOEAD', 'MACO', 'PSO'}
+
+        # Validate option values early so loading can stay simple.
+        algorithm_names = set(ALGORITHM_BY_NAME)
         int_options = {'MAXRETRIES', 'RETRIES', 'MAXTIME', 'RANDOMSEED', 'SEED', 'POPULATIONSIZE', 'POPSIZE', 'GENERATIONS', 'GENS', 'PATIENCE', 'MAXNOCHANGES', 'MAXTRIALS', 'REFINERITERS', 'REFINERNEIGHBORS'}
         float_options = {'REFINERWORSENING'}
 
@@ -169,7 +209,7 @@ class Optimization:
             key = tokens[0].upper().replace('_', '')
             if key in ['ALGORITHM', 'ALGORITHMS']:
                 for val in tokens[1:]:
-                    if val.upper() not in alg_map:
+                    if val.upper() not in algorithm_names:
                         errors.append(f"Line {line_num}: Unknown algorithm '{val}'")
             elif key in int_options:
                 if len(tokens) > 1:
@@ -254,16 +294,6 @@ class Optimization:
         """Parses the OPTIONS section."""
         self.algorithms = []  # Stage 2 metaheuristics; empty = only UH + FLS-H
         self.max_retries = MAX_RETRIES
-        alg_map = {
-            'UH': ALGORITHM_UH, 
-            'DE': ALGORITHM_DE, 
-            'DA': ALGORITHM_DA, 
-            'NSGA2': ALGORITHM_NSGA2, 
-            'DIRECT': ALGORITHM_DIRECT,
-            'MOEAD': ALGORITHM_MOEAD,
-            'MACO': ALGORITHM_MACO,
-            'PSO': ALGORITHM_PSO
-        }
 
         for line_num, content in options_lines:
             tokens = parser.line_to_tuple(content)
@@ -279,8 +309,11 @@ class Optimization:
             values = tokens[1:]
 
             if key in ['ALGORITHM', 'ALGORITHMS'] and values:
-                self.algorithms = [alg_map.get(v.upper(), None) for v in values]
-                self.algorithms = [a for a in self.algorithms if a is not None and a != ALGORITHM_UH]
+                self.algorithms = [
+                    ALGORITHM_BY_NAME[v.upper()]
+                    for v in values
+                    if ALGORITHM_BY_NAME[v.upper()] != ALGORITHM_UH
+                ]
                 logger.info(f"Optional Metaheuristics: {', '.join(values)}")
             elif key in ['MAXRETRIES', 'RETRIES']:
                 if values:
@@ -520,6 +553,8 @@ class Optimization:
             'Simulations': self.simulation_cycles,
             'Cost': f"{cost:.2f}"
         })
+        self.algorithm = ALGORITHM_UH
+        self.best_algorithm_name = ALGORITHM_NAMES[ALGORITHM_UH]
         self._save_scn_result("UH")
         return solution, cost
 
@@ -527,14 +562,8 @@ class Optimization:
         """Runs the second stage of optimization: Global Exploration."""
         logger.info("\n" + ">>> STAGE 2: OPTIONAL GLOBAL EXPLORATION <<<")
         
-        alg_names = {
-            ALGORITHM_DE: 'DE', ALGORITHM_DA: 'DA', ALGORITHM_NSGA2: 'NSGA2',
-            ALGORITHM_DIRECT: 'DIRECT', ALGORITHM_MOEAD: 'MOEAD',
-            ALGORITHM_MACO: 'MACO', ALGORITHM_PSO: 'PSO'
-        }
-
         for alg_id in self.algorithms:
-            alg_name = alg_names.get(alg_id, 'UNKNOWN')
+            alg_name = ALGORITHM_NAMES.get(alg_id, 'UNKNOWN')
             best_sol, best_cost = self._execute_metaheuristic(alg_id, alg_name, best_sol, best_cost)
 
         # Final refinement to the absolute best solution found
@@ -561,8 +590,7 @@ class Optimization:
             
             start_time = perf_counter()
             self.simulation_cycles = 0
-            self.algorithm = alg_id
-            
+
             logger.info(f"      [SEED] Starting with best cost: {best_cost:.2f}")
             meta_solution = self._run_meta_algorithm(alg_id, best_sol)
             duration = perf_counter() - start_time
@@ -575,6 +603,8 @@ class Optimization:
                     logger.info(f"      [ACCEPTED] Improved cost found: {meta_cost:.2f} (Previous: {best_cost:.2f})")
                     best_cost = meta_cost
                     best_sol = meta_solution.copy()
+                    self.algorithm = alg_id
+                    self.best_algorithm_name = alg_name
                 else:
                     logger.info(f"      [DISCARDED] Cost {meta_cost:.2f} is not an improvement over {best_cost:.2f}")
                 
@@ -584,7 +614,8 @@ class Optimization:
                     'Cost': f"{meta_cost:.2f}"
                 })
                 self._save_scn_result(alg_name)
-                break
+                if meta_cost < overall_best_cost:
+                    break
             else:
                 self.results.append({
                     'Algorithm': alg_name, 'Attempt': attempt, 'Success': "NO",
@@ -595,12 +626,18 @@ class Optimization:
 
     def _run_meta_algorithm(self, alg_id: int, initial_x: np.ndarray) -> Optional[np.ndarray]:
         """Dispatches to the specific SciPy or PyGMO solver."""
-        if alg_id in [ALGORITHM_DE, ALGORITHM_DA, ALGORITHM_DIRECT]:
-            from . import scipy_solver
+        if alg_id in SCIPY_ALGORITHMS:
+            if __package__:
+                from . import scipy_solver
+            else:
+                from ppno import scipy_solver
             return scipy_solver.solve_scipy(self, alg_id, initial_x=initial_x)
-        
-        if alg_id in [ALGORITHM_NSGA2, ALGORITHM_MOEAD, ALGORITHM_MACO, ALGORITHM_PSO]:
-            from . import pygmo_solver
+
+        if alg_id in PYGMO_ALGORITHMS:
+            if __package__:
+                from . import pygmo_solver
+            else:
+                from ppno import pygmo_solver
             sol_x = None
             if alg_id == ALGORITHM_NSGA2:
                 _, sol_x = pygmo_solver.nsga2(self, initial_x=initial_x)
@@ -729,20 +766,10 @@ class Optimization:
         self.set_x(solution)
         cost = self.get_cost()
         logger.info(f"Success! Final Network Cost: {cost:.2f}")
-
-        alg_name = {
-            ALGORITHM_UH: 'UH', 
-            ALGORITHM_DE: 'DE', 
-            ALGORITHM_DA: 'DA', 
-            ALGORITHM_NSGA2: 'NSGA2',
-            ALGORITHM_DIRECT: 'DIRECT',
-            ALGORITHM_MOEAD: 'MOEAD',
-            ALGORITHM_MACO: 'MACO',
-            ALGORITHM_PSO: 'PSO'
-        }.get(self.algorithm, 'Optimized')
+        logger.info(f"Best source algorithm: {self.best_algorithm_name}")
 
         # Save final result to SCN file
-        self._save_scn_result(alg_name)
+        self._save_scn_result("Final")
 
     def pretty_print(self, x: np.ndarray) -> None:
         """Displays the solution in a formatted table."""
@@ -770,12 +797,52 @@ class Optimization:
             pass
 
 
+class PPNOArgumentParser(argparse.ArgumentParser):
+    """Argument parser that prints full help when command-line parsing fails."""
+
+    def error(self, message: str) -> None:
+        self.print_usage(sys.stderr)
+        self.exit(2, f"{self.prog}: error: {message}\n\n{self.format_help()}")
+
+
+def build_parser() -> argparse.ArgumentParser:
+    """Build the command-line parser for the PPNO executable."""
+    return PPNOArgumentParser(
+        prog="ppno",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=(
+            "Pressurized Pipe Network Optimizer (PPNO)\n\n"
+            "Optimize pipe diameters for an EPANET model using a .ext problem file."
+        ),
+        epilog=(
+            "Examples:\n"
+            "  ppno ppno/examples/example_1.ext\n"
+            "  python -m ppno.ppno ppno/examples/example_1.ext"
+        ),
+    )
+
+
+def _normalize_argv(argv: Optional[List[str]]) -> List[str]:
+    """Return command arguments without the program name."""
+    if argv is None:
+        return sys.argv[1:]
+    if argv and Path(argv[0]).name.lower() in {"ppno", "ppno.exe", "ppno.py"}:
+        return argv[1:]
+    return argv
+
+
 def main(argv: Optional[List[str]] = None) -> None:
     """Entry point for the PPNO command-line tool."""
-    if argv is None:
-        argv = sys.argv
-    if len(argv) < 2 or argv[1] in ['-h', '--help']:
-        print("Usage: ppno <problem_file.ext>")
+    parser = build_parser()
+    parser.add_argument(
+        "problem_file",
+        nargs="?",
+        help="Path to the .ext problem definition file.",
+    )
+
+    args = parser.parse_args(_normalize_argv(argv))
+    if args.problem_file is None:
+        parser.print_help()
         sys.exit(0)
 
     logger.info("=" * 80)
@@ -784,12 +851,13 @@ def main(argv: Optional[List[str]] = None) -> None:
 
     opt = None
     try:
-        opt = Optimization(argv[1])
+        opt = Optimization(args.problem_file)
         solution = opt.solve()
         if solution is not None:
             opt.pretty_print(solution)
     except Exception:
         logger.exception("A fatal error occurred during optimization:")
+        parser.print_help(sys.stderr)
         sys.exit(1)
     finally:
         if opt is not None:
@@ -797,4 +865,4 @@ def main(argv: Optional[List[str]] = None) -> None:
 
 
 if __name__ == "__main__":
-    main(sys.argv)
+    main()

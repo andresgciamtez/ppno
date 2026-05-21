@@ -81,14 +81,14 @@ class LocalRefiner:
         for i in range(self.max_iter):
             logger.debug(f"[FLS-H] Iteration {i+1}/{self.max_iter} | Best Cost: {best_cost:.2f}")
             
-            vecinos = self.generate_neighborhood(current_x)
+            neighbors = self.generate_neighborhood(current_x)
             
             # Apply repair and fast filters to candidates
             candidates = []
-            for v in vecinos:
-                v_repaired = self.repair(v)
-                if self.is_promising(v_repaired, current_cost):
-                    candidates.append(v_repaired)
+            for neighbor in neighbors:
+                repaired = self.repair(neighbor)
+                if self.is_promising(repaired, current_cost):
+                    candidates.append(repaired)
 
             if not candidates:
                 current_x = self.diversify(current_x)
@@ -142,7 +142,7 @@ class LocalRefiner:
             indices = np.random.choice(n_vars, n_mutations, replace=False)
             
             for idx in indices:
-                # Small perturbation: ±1 index
+                # Small perturbation: one catalog step up or down.
                 step = 1 if np.random.random() > 0.5 else -1
                 new_x[idx] = np.clip(new_x[idx] + step, self.simulation.lbound[idx], self.simulation.ubound[idx])
             

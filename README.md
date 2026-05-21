@@ -19,7 +19,7 @@ Optional global metaheuristics (e.g., DE, NSGA-II)
 Two-stage hybrid optimization pipeline
 Hydraulically-aware local search (FLS-H)
 Metaheuristic seeding with feasible solutions
-Global evaluation cache (EPANET call reduction)
+Local-search evaluation cache (EPANET call reduction)
 Incremental result export in .scn format
 Robust parsing and validation
 Designed for reproducibility and batch execution
@@ -32,6 +32,14 @@ pip install .
 Recommended (development mode):
 
 pip install -e .
+
+Optional multi-objective solvers (NSGA-II, MOEA/D, MACO, PSO) require PyGMO:
+
+pip install ".[mo]"
+
+For running the test suite from source:
+
+pip install -e ".[dev]"
 ⚠️ Windows Troubleshooting
 
 If ppno is not recognized:
@@ -106,6 +114,7 @@ Ensures no local improvements are missed
 Supported Algorithms
 Differential Evolution (DE)
 Dragonfly Algorithm (DA)
+DIRECT
 NSGA-II
 MOEA/D
 MACO
@@ -121,11 +130,51 @@ Minimize expensive EPANET evaluations
 Exploit network structure for efficient cost reduction
 Key Mechanisms
 Feature	Description
-Global Evaluation Cache	Avoids repeated EPANET simulations via hashing
+Local Evaluation Cache	Avoids repeated EPANET simulations within each FLS-H refinement pass
 Hydraulic Awareness	Targets pipes with high gradient impact
 Fast Constraints	Filters invalid candidates before simulation
 Stochastic Worsening	Escapes local minima with controlled cost increases
 ⚙️ Configuration (.ext file)
+
+The `.ext` file is a small text file that links an EPANET model with the
+optimization definition.
+
+Main sections:
+
+[INP]
+Path to the EPANET `.inp` model. Relative paths can be resolved from the
+current working directory or from the `.ext` file location.
+
+[OPTIONS]
+Optional section. If `Algorithm` is omitted, PPNO runs only the mandatory
+Unit Headloss heuristic plus FLS-H local refinement.
+
+Available optional algorithms:
+
+DE
+DA
+DIRECT
+NSGA2
+MOEAD
+MACO
+PSO
+
+NSGA2, MOEAD, MACO, and PSO require the optional PyGMO extra:
+
+pip install ".[mo]"
+
+[PIPES]
+Maps EPANET pipe/link IDs to catalog series. The first column must match the
+pipe ID in the EPANET model. The second column selects the catalog series that
+can be assigned to that pipe.
+
+[PRESSURES]
+Defines minimum pressure constraints. The first column must match an EPANET
+node ID. The second column is the required minimum pressure.
+
+[CATALOG]
+Defines available pipe options for each series: series name, diameter,
+roughness, and unit price. Diameters in each series must be strictly increasing.
 
 Example:
 

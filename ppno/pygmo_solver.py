@@ -13,7 +13,6 @@ try:
     import pygmo as pg
 except ImportError:
     pg = None
-from .constants import MAX_ALGORITHM_TIME
 
 # Logger configuration
 logger = logging.getLogger(__name__)
@@ -24,6 +23,14 @@ POPULATION_SIZE = 100
 MAX_TRIALS = 250
 MAX_NO_CHANGES = 10
 
+
+def _ensure_pygmo_available() -> None:
+    """Raise a clear error when the optional PyGMO extra is not installed."""
+    if pg is None:
+        raise ImportError(
+            "PyGMO algorithms require the optional dependency 'pygmo'. "
+            "Install it with: pip install ppno[mo]"
+        )
 
 
 class PPNOProblem:
@@ -120,16 +127,16 @@ def evolve_ppno(optimization_instance: Any,
             optimization fails or finds no valid solutions.
     """
     logger.info(f'*** {name} OPTIMIZATION ***')
+    _ensure_pygmo_available()
 
     start_time = perf_counter()
-    
-    # Calculate how many simulation cycles occur per evaluation (number of time steps)
-    # This is needed because PyGMO's internal copies of the instance don't update this one.
+
+    # PyGMO copies the UDP internally, so the main Optimization instance cannot
+    # observe each check() call directly. Estimate simulation cycles per fitness
+    # evaluation once, then scale it by the final PyGMO evaluation count.
     initial_cycles = int(optimization_instance.simulation_cycles)
     optimization_instance.check(mode='TF')
-    # We determine how many cycles occur per evaluation (e.g., number of time steps)
     cycles_per_eval = max(1, int(optimization_instance.simulation_cycles) - initial_cycles)
-    # Note: pygmo copies the UDP, so we track evaluations through the pg.problem interface.
 
     prob = pg.problem(PPNOProblem(optimization_instance))
 
@@ -159,8 +166,8 @@ def evolve_ppno(optimization_instance: Any,
             best_valid_fitness = list(seed_fit)
             best_valid_x = initial_x.copy()
 
-        # Replace other individuals with variations
-        # We vary 5-10% of the variables for each individual to create diversity
+        # Add light mutations around the seed so the population starts near a
+        # feasible region without becoming a set of identical individuals.
         n_vars = len(initial_x)
         for i in range(1, min(10, pop_size)): # Seed first 10
             variant = initial_x.copy()

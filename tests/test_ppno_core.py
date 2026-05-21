@@ -3,6 +3,7 @@ import numpy as np
 import sys
 import os
 import logging
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 from ppno.ppno import Optimization, main
 from ppno.constants import (
@@ -66,6 +67,18 @@ def test_options_empty_and_retries(mock_et, tmp_path):
     opt = Optimization(ext)
     assert opt.max_retries == 5
     assert len(opt.algorithms) == 3
+
+def test_inp_path_can_resolve_from_cwd(mock_et, tmp_path, monkeypatch):
+    project = tmp_path / "project"
+    examples = project / "examples"
+    examples.mkdir(parents=True)
+    (examples / "net.inp").write_text("")
+    ext = examples / "case.ext"
+    ext.write_text("[INP]\n./examples/net.inp\n[PIPES]\np1 s1\n[PRESSURES]\nn1 20.0\n[CATALOG]\ns1 100.0 0.1 10.0\n")
+
+    monkeypatch.chdir(project)
+    opt = Optimization(Path("examples") / "case.ext")
+    assert opt.inp_file == Path("examples") / "net.inp"
 
 def test_solve_full_logic_coverage(mock_et, example_files):
     opt = Optimization(example_files[0])

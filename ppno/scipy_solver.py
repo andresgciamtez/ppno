@@ -10,7 +10,7 @@ from time import perf_counter
 import numpy as np
 from .constants import (
     ALGORITHM_DE, ALGORITHM_DA, ALGORITHM_DIRECT, 
-    PENALTY_VALUE, MAX_ALGORITHM_TIME
+    PENALTY_VALUE
 )
 
 # Logger configuration
@@ -55,14 +55,14 @@ def solve_scipy(opt_instance, alg_id: int, initial_x: Optional[np.ndarray] = Non
             raise SolverTimeoutError(f"Time limit of {max_time}s reached.")
         opt_instance.set_x(np.round(x_params).astype(np.int32))
         
-        # We use mode 'PD' to get the maximum deficit for a guided penalty
+        # Pressure deficits give the continuous optimizers a useful direction
+        # instead of treating every infeasible solution as equally bad.
         deficits = opt_instance.check(mode='PD')
         max_deficit = np.max(deficits)
         
         if max_deficit <= 0:
             return opt_instance.get_cost()
         else:
-            # Provide a guided penalty proportional to the violation
             return PENALTY_VALUE + (max_deficit * 1e6)
 
 
@@ -99,9 +99,6 @@ def solve_scipy(opt_instance, alg_id: int, initial_x: Optional[np.ndarray] = Non
             # subdivides the search space from the center of the hypercube.
             result = direct(objective, bounds)
         else:
-            return None
-
-        if not result.success:
             return None
 
         final_x = np.round(result.x).astype(np.int32)

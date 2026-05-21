@@ -25,6 +25,7 @@ dependencies = [
 
 [project.optional-dependencies]
 mo = ["pygmo>=2.18.0"]
+dev = ["pytest>=8.0"]
 
 [project.urls]
 "Homepage" = "https://github.com/andresgciamtez/ppno"

@@ -190,7 +190,7 @@ def test_all_scipy_algorithms(mock_et, tmp_path):
         scipy_solver.solve_scipy(opt, ALGORITHM_DA)
         scipy_solver.solve_scipy(opt, ALGORITHM_DIRECT)
         m_da.return_value.success = False
-        assert scipy_solver.solve_scipy(opt, ALGORITHM_DA) is None
+        assert np.array_equal(scipy_solver.solve_scipy(opt, ALGORITHM_DA), [0])
 
 def test_scipy_timeout(mock_et, tmp_path):
     ext = tmp_path / "timeout.ext"; (tmp_path / "t.inp").write_text("")

@@ -1,15 +1,23 @@
 [TITLE]
+; Free text title for the optimization case.
 Optimization of the Hanoi Network (Fujiwara & Khang, 1990)
 
 [INP]
-;Epanet inp file
+; EPANET .inp model file. Relative paths may be written from the current
+; working directory or from this .ext file location.
 ./examples/HAN.inp
 
 [OPTIONS]
-Algorithm DE DA NSGA2 MOEAD MACO PSO
+; Optional section. If Algorithm is omitted, PPNO only runs the mandatory
+; Unit Headloss heuristic and FLS-H local refinement.
+; Available algorithms: DE DA DIRECT NSGA2 MOEAD MACO PSO
+; NSGA2, MOEAD, MACO, and PSO require the optional PyGMO extra: pip install ".[mo]"
+Algorithm DE
 
 [PIPES]
-;ID     series
+; EPANET pipe ID    catalog series
+; Each ID must match a pipe/link ID in the EPANET .inp model.
+; The catalog series selects which [CATALOG] entries may be assigned to that pipe.
 1    PVC-SDR41
 2    PVC-SDR41
 3    PVC-SDR41
@@ -46,7 +54,8 @@ Algorithm DE DA NSGA2 MOEAD MACO PSO
 34    PVC-SDR41
 
 [PRESSURES]
-;ID required_pressure
+; EPANET node ID    minimum required pressure
+; Each ID must match a node ID in the EPANET .inp model.
 2    30.0
 3    30.0
 4    30.0
@@ -80,7 +89,8 @@ Algorithm DE DA NSGA2 MOEAD MACO PSO
 32    30.0
 
 [CATALOG]
-;  series  diameter    roughness    price
+; catalog series    diameter    roughness    unit price
+; Diameters in each series must be strictly increasing.
 PVC-SDR41     289.9        130.0    45.73
 PVC-SDR41     386.6        130.0    70.40
 PVC-SDR41     483.2        130.0    98.39

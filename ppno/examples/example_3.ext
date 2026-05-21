@@ -1,15 +1,23 @@
 [TITLE]
+; Free text title for the optimization case.
 Optimization of the Balerma Irrigation Network (Reca & Martínez, 2006)
 
 [INP]
-;Epanet inp file
+; EPANET .inp model file. Relative paths may be written from the current
+; working directory or from this .ext file location.
 ./examples/BIN.inp
 
 [OPTIONS]
+; Optional section. If Algorithm is omitted, PPNO only runs the mandatory
+; Unit Headloss heuristic and FLS-H local refinement.
+; Available algorithms: DE DA DIRECT NSGA2 MOEAD MACO PSO
+; NSGA2, MOEAD, MACO, and PSO require the optional PyGMO extra: pip install ".[mo]"
 Algorithm DE DA NSGA2 MOEAD MACO PSO
 
 [PIPES]
-; ID    series
+; EPANET pipe ID    catalog series
+; Each ID must match a pipe/link ID in the EPANET .inp model.
+; The catalog series selects which [CATALOG] entries may be assigned to that pipe.
 1	PVC
 2	PVC
 3	PVC
@@ -466,7 +474,8 @@ Algorithm DE DA NSGA2 MOEAD MACO PSO
 5	PVC
 
 [PRESSURES]
-;ID    required_pressure
+; EPANET node ID    minimum required pressure
+; Each ID must match a node ID in the EPANET .inp model.
 179001    20.0
 179    20.0
 177    20.0
@@ -912,7 +921,8 @@ Algorithm DE DA NSGA2 MOEAD MACO PSO
 422    20.0
 
 [CATALOG]
-; series diameter roughness     price
+; catalog series    diameter    roughness    unit price
+; Diameters in each series must be strictly increasing.
 PVC         113.0    0.0025      7.22
 PVC         126.6    0.0025      9.10
 PVC         144.6    0.0025     11.92

@@ -1,15 +1,23 @@
 [TITLE]
+; Free text title for the optimization case.
 Optimization of the New York Network (Murphy, Simpson & Dandy, 1993)
 
 [INP]
-;Epanet inp file
+; EPANET .inp model file. Relative paths may be written from the current
+; working directory or from this .ext file location.
 ./examples/NYT.inp
 
 [OPTIONS]
-Algorithm DE DA NSGA2 MOEAD MACO PSO
+; Optional section. If Algorithm is omitted, PPNO only runs the mandatory
+; Unit Headloss heuristic and FLS-H local refinement.
+; Available algorithms: DE DA DIRECT NSGA2 MOEAD MACO PSO
+; NSGA2, MOEAD, MACO, and PSO require the optional PyGMO extra: pip install ".[mo]"
+Algorithm DE
 
 [PIPES]
-;ID series
+; EPANET pipe ID    catalog series
+; Each ID must match a pipe/link ID in the EPANET .inp model.
+; The catalog series selects which [CATALOG] entries may be assigned to that pipe.
 101    NYT
 102    NYT
 103    NYT
@@ -33,7 +41,8 @@ Algorithm DE DA NSGA2 MOEAD MACO PSO
 121    NYT
 
 [PRESSURES]
-;ID required_pressure
+; EPANET node ID    minimum required pressure
+; Each ID must match a node ID in the EPANET .inp model.
 2    110.546
 3    110.546
 4    110.546
@@ -55,7 +64,8 @@ Algorithm DE DA NSGA2 MOEAD MACO PSO
 20    110.546
 
 [CATALOG]
-;series diameter roughness     price
+; catalog series    diameter    roughness    unit price
+; Diameters in each series must be strictly increasing.
 NYT        0.001     100.0      0.00 ; 0.001 = not replace pipe
 NYT           36     100.0     93.50
 NYT           48     100.0    134.00
