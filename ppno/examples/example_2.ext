@@ -10,13 +10,17 @@ Optimization of the New York Network (Murphy, Simpson & Dandy, 1993)
 [OPTIONS]
 ; Optional section. If Algorithm is omitted, PPNO only runs the mandatory
 ; Unit Headloss heuristic and FLS-H local refinement.
-; Available algorithms: DE DA DIRECT NSGA2 MOEAD MACO PSO
+; Available algorithms: DE DA NSGA2 MOEAD MACO PSO
 Algorithm DE
+
+[PIPE_CATALOG]
+; Pipe catalog file with group, diameter, roughness and price columns.
+example_2.cat
 
 [PIPES]
 ; EPANET pipe ID    pipe-size group
 ; Each ID must match a pipe/link ID in the EPANET .inp model.
-; The pipe-size group selects which [PIPE_SIZES] entries may be assigned to that pipe.
+; The pipe-size group selects which catalog entries may be assigned to that pipe.
 101    NYT
 102    NYT
 103    NYT
@@ -62,24 +66,5 @@ Algorithm DE
 19    110.546
 20    110.546
 
-[PIPE_SIZES]
-; pipe-size group    diameter    roughness    unit price
-; Diameters in each group must be strictly increasing.
-NYT        0.001     100.0      0.00 ; 0.001 = not replace pipe
-NYT           36     100.0     93.50
-NYT           48     100.0    134.00
-NYT           60     100.0    176.00
-NYT           72     100.0    221.00
-NYT           84     100.0    267.00
-NYT           96     100.0    316.00
-NYT          108     100.0    365.00
-NYT          120     100.0    417.00
-NYT          132     100.0    469.00
-NYT          144     100.0    522.00
-NYT          156     100.0    577.00
-NYT          168     100.0    632.00
-NYT          180     100.0    689.00
-NYT          192     100.0    746.00
-NYT          204     100.0    804.00
-
 [END]
+

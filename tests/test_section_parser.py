@@ -32,6 +32,16 @@ def test_read_all(example_ext_file):
     assert "SECTION2" in sections
     assert len(sections["SECTION1"]) == 2
 
+def test_read_rows_ignores_comments(tmp_path):
+    path = tmp_path / "pipes.cat"
+    path.write_text("; group diameter roughness price\nPVC 100 0.1 10 ; comment\n\nPVC 150 0.1 20\n")
+    reader = SectionParser(path)
+
+    assert reader.read_rows() == [
+        (2, "PVC 100 0.1 10"),
+        (4, "PVC 150 0.1 20"),
+    ]
+
 def test_file_not_found():
     with pytest.raises(FileNotFoundError):
         reader = SectionParser("nonexistent.ext")

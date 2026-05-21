@@ -5,10 +5,9 @@ def test_algorithm_ids():
     assert c.ALGORITHM_DE == 1
     assert c.ALGORITHM_DA == 2
     assert c.ALGORITHM_NSGA2 == 3
-    assert c.ALGORITHM_DIRECT == 4
-    assert c.ALGORITHM_MOEAD == 5
-    assert c.ALGORITHM_MACO == 6
-    assert c.ALGORITHM_PSO == 7
+    assert c.ALGORITHM_MOEAD == 4
+    assert c.ALGORITHM_MACO == 5
+    assert c.ALGORITHM_PSO == 6
 
 def test_params():
     assert c.PENALTY_VALUE == 1e9

@@ -43,14 +43,14 @@ logger = logging.getLogger(__name__)
 if __package__:
     from .constants import (
         ALGORITHM_UH, ALGORITHM_DE, ALGORITHM_DA, ALGORITHM_NSGA2,
-        ALGORITHM_DIRECT, ALGORITHM_MOEAD, ALGORITHM_MACO,
-        ALGORITHM_PSO, MAX_RETRIES, DEFAULT_CONFIG
+        ALGORITHM_MOEAD, ALGORITHM_MACO, ALGORITHM_PSO, MAX_RETRIES,
+        DEFAULT_CONFIG
     )
 else:
     from ppno.constants import (
         ALGORITHM_UH, ALGORITHM_DE, ALGORITHM_DA, ALGORITHM_NSGA2,
-        ALGORITHM_DIRECT, ALGORITHM_MOEAD, ALGORITHM_MACO,
-        ALGORITHM_PSO, MAX_RETRIES, DEFAULT_CONFIG
+        ALGORITHM_MOEAD, ALGORITHM_MACO, ALGORITHM_PSO, MAX_RETRIES,
+        DEFAULT_CONFIG
     )
 
 ALGORITHM_BY_NAME = {
@@ -58,14 +58,13 @@ ALGORITHM_BY_NAME = {
     'DE': ALGORITHM_DE,
     'DA': ALGORITHM_DA,
     'NSGA2': ALGORITHM_NSGA2,
-    'DIRECT': ALGORITHM_DIRECT,
     'MOEAD': ALGORITHM_MOEAD,
     'MACO': ALGORITHM_MACO,
     'PSO': ALGORITHM_PSO,
 }
 
 ALGORITHM_NAMES = {value: key for key, value in ALGORITHM_BY_NAME.items()}
-SCIPY_ALGORITHMS = {ALGORITHM_DE, ALGORITHM_DA, ALGORITHM_DIRECT}
+SCIPY_ALGORITHMS = {ALGORITHM_DE, ALGORITHM_DA}
 PYGMO_ALGORITHMS = {ALGORITHM_NSGA2, ALGORITHM_MOEAD, ALGORITHM_MACO, ALGORITHM_PSO}
 
 
@@ -82,6 +81,7 @@ class Optimization:
         algorithm (int): Chosen optimization algorithm ID.
         pipes (np.ndarray): Array of pipes to be sized.
         nodes (np.ndarray): Array of nodes to check for pressure requirements.
+        pipe_catalog_file (Path): Path to the external pipe catalog file.
         pipe_sizes (Dict[str, np.ndarray]): Available pipe-size groups and their properties.
         dimension (int): Number of variable pipes.
         lbound (np.ndarray): Lower bounds for variable indexes.
@@ -121,19 +121,15 @@ class Optimization:
             raise ValueError(f"Line 1: Mandatory [INP] section is missing or empty in {self.problem_file.name}")
         
         inp_line_num, inp_raw_path = sections['INP'][0]
-        inp_path = Path(inp_raw_path)
-        if not inp_path.is_absolute():
-            candidates = [
-                inp_path,
-                self.problem_file.parent / inp_path,
-                self.problem_file.parent / inp_path.name,
-            ]
-            inp_path = next((candidate for candidate in candidates if candidate.exists()), candidates[-1])
+        inp_path = self._resolve_problem_path(inp_raw_path)
             
         if not inp_path.exists():
              raise FileNotFoundError(f"Line {inp_line_num}: EPANET INP file not found: {inp_raw_path}")
 
         self.inp_file = inp_path
+        self.pipe_catalog_file = self._load_pipe_catalog_file(sections)
+        pipe_catalog_parser = sp.SectionParser(self.pipe_catalog_file)
+        self.pipe_catalog_lines = pipe_catalog_parser.read_rows()
         self.algorithm = ALGORITHM_UH
         self.best_algorithm_name = ALGORITHM_NAMES[ALGORITHM_UH]
         self.config = DEFAULT_CONFIG.copy()
@@ -153,7 +149,7 @@ class Optimization:
 
         try:
             # 3. Comprehensive Validation
-            self._validate_config(sections, parser)
+            self._validate_config(sections, parser, self.pipe_catalog_lines)
 
             # 4. Load Data
             self._load_options(sections.get('OPTIONS', []), parser)
@@ -165,7 +161,7 @@ class Optimization:
 
             self._load_pipes(sections.get('PIPES', []), parser)
             self._load_pressures(sections.get('PRESSURES', []), parser)
-            self._load_pipe_sizes(sections.get('PIPE_SIZES', []), parser)
+            self._load_pipe_sizes(self.pipe_catalog_lines, parser)
 
             self.dimension = len(self.pipes)
             self._current_x = np.zeros(self.dimension, dtype=np.int32)
@@ -179,7 +175,40 @@ class Optimization:
         self.results = []
         logger.info("-" * 80)
 
-    def _validate_config(self, sections: Dict[str, List[Tuple[int, str]]], parser: sp.SectionParser) -> None:
+    def _resolve_problem_path(self, raw_path: str) -> Path:
+        """Resolve a path from CWD, the .ext directory, or by basename there."""
+        resolved_path = Path(raw_path)
+        if resolved_path.is_absolute():
+            return resolved_path
+
+        candidates = [
+            resolved_path,
+            self.problem_file.parent / resolved_path,
+            self.problem_file.parent / resolved_path.name,
+        ]
+        return next((candidate for candidate in candidates if candidate.exists()), candidates[-1])
+
+    def _load_pipe_catalog_file(self, sections: Dict[str, List[Tuple[int, str]]]) -> Path:
+        """Resolve the external pipe catalog referenced by [PIPE_CATALOG]."""
+        catalog_lines = sections.get('PIPE_CATALOG', [])
+        if not catalog_lines:
+            raise ValueError(f"Mandatory [PIPE_CATALOG] section is missing or empty in {self.problem_file.name}")
+        if len(catalog_lines) > 1:
+            line_num, _ = catalog_lines[1]
+            raise ValueError(f"Line {line_num}: [PIPE_CATALOG] accepts exactly one file path")
+
+        catalog_line_num, catalog_raw_path = catalog_lines[0]
+        catalog_path = self._resolve_problem_path(catalog_raw_path)
+        if not catalog_path.exists():
+            raise FileNotFoundError(f"Line {catalog_line_num}: Pipe catalog file not found: {catalog_raw_path}")
+        return catalog_path
+
+    def _validate_config(
+            self,
+            sections: Dict[str, List[Tuple[int, str]]],
+            parser: sp.SectionParser,
+            pipe_catalog_lines: List[Tuple[int, str]]
+            ) -> None:
         """Performs semantic validation of the configuration."""
         errors = []
 
@@ -204,8 +233,11 @@ class Optimization:
         # Check pipe existence and pipe-size group references
         pipes_lines = sections.get('PIPES', [])
         pipe_size_groups = set()
-        for _, content in sections.get('PIPE_SIZES', []):
+        for line_num, content in pipe_catalog_lines:
             tokens = parser.line_to_tuple(content)
+            if tokens and tokens[0].startswith('['):
+                errors.append(f"Line {line_num}: Pipe catalog files must not contain section headers")
+                continue
             if len(tokens) >= 4:
                 pipe_size_groups.add(tokens[0])
 
@@ -221,7 +253,7 @@ class Optimization:
                 errors.append(f"Line {line_num}: Pipe '{pipe_id}' not found in hydraulic model")
             
             if group_name not in pipe_size_groups:
-                errors.append(f"Line {line_num}: Pipe-size group '{group_name}' not defined in [PIPE_SIZES]")
+                errors.append(f"Line {line_num}: Pipe-size group '{group_name}' not defined in pipe catalog")
 
         # Check Nodes and Pressures
         pressures_lines = sections.get('PRESSURES', [])
@@ -242,16 +274,18 @@ class Optimization:
 
         # Check pipe-size group consistency (strictly increasing diameter)
         temp_sizes = {}
-        for line_num, content in sections.get('PIPE_SIZES', []):
+        for line_num, content in pipe_catalog_lines:
             tokens = parser.line_to_tuple(content)
             if not tokens: continue
+            if tokens[0].startswith('['):
+                continue
             if len(tokens) < 4:
-                errors.append(f"Line {line_num}: Invalid pipe size definition. Expected 'GROUP DIAMETER ROUGHNESS PRICE'")
+                errors.append(f"Line {line_num}: Invalid pipe catalog entry. Expected 'GROUP DIAMETER ROUGHNESS PRICE'")
                 continue
             try:
                 sn, d, r, p = tokens[0], float(tokens[1]), float(tokens[2]), float(tokens[3])
             except ValueError:
-                errors.append(f"Line {line_num}: Invalid numeric values in pipe-size group '{tokens[0]}'")
+                errors.append(f"Line {line_num}: Invalid numeric values in pipe catalog group '{tokens[0]}'")
                 continue
             
             if sn not in temp_sizes: temp_sizes[sn] = []
@@ -332,13 +366,15 @@ class Optimization:
         logger.info(f"Loaded {len(self.nodes)} pressure constraints.")
 
     def _load_pipe_sizes(self, pipe_size_lines: List[Tuple[int, str]], parser: sp.SectionParser) -> None:
-        """Parses the PIPE_SIZES section."""
+        """Parses the external pipe catalog rows."""
         dt = np.dtype([('diameter', 'f4'), ('roughness', 'f4'), ('price', 'f4')])
         required_groups = set(str(p['group']) for p in self.pipes)
 
         raw_data: Dict[str, List[Tuple[float, float, float]]] = {s: [] for s in required_groups}
         for line_num, content in pipe_size_lines:
             tokens = parser.line_to_tuple(content)
+            if tokens and tokens[0].startswith('['):
+                continue
             if len(tokens) < 4:
                 continue
             sn, d, r, p = tokens[0], tokens[1], tokens[2], tokens[3]

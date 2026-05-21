@@ -104,6 +104,19 @@ class SectionParser:
 
         return all_sections
 
+    def read_rows(self) -> List[Tuple[int, str]]:
+        """Read non-empty data rows from a plain text file.
+
+        Comments preceded by ';' are ignored. This is intended for auxiliary
+        table files without section headers, such as pipe catalogs.
+        """
+        rows: List[Tuple[int, str]] = []
+        for i, line in enumerate(self._get_lines(), 1):
+            clean_line = line.split(';')[0].strip()
+            if clean_line:
+                rows.append((i, clean_line))
+        return rows
+
     @staticmethod
     def line_to_tuple(line: str) -> Tuple[str, ...]:
         """Converts a space-separated string into a tuple of stripped words.

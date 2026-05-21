@@ -8,8 +8,7 @@ from unittest.mock import MagicMock, patch
 from ppno.ppno import Optimization, main
 from ppno.constants import (
     ALGORITHM_UH, ALGORITHM_DE, ALGORITHM_DA, ALGORITHM_NSGA2, 
-    ALGORITHM_MOEAD, ALGORITHM_MACO, ALGORITHM_PSO, ALGORITHM_DIRECT,
-    MAX_RETRIES
+    ALGORITHM_MOEAD, ALGORITHM_MACO, ALGORITHM_PSO, MAX_RETRIES
 )
 
 @pytest.fixture
@@ -43,7 +42,7 @@ def example_files(tmp_path):
         "[INP]\ntest.inp\n"
         "[PIPES]\np1 s1\n"
         "[PRESSURES]\nn1 20.0\n"
-        "[PIPE_SIZES]\ns1 100.0 0.1 10.0\ns1 200.0 0.1 20.0\n"
+        "[PIPE_CATALOG]\npipe.cat\n"
     )
     ext_path.write_text(ext_content)
     return ext_path, inp_path
@@ -56,14 +55,14 @@ def test_init_all_branches(mock_et, tmp_path):
     
     # 2. Defensive et call (lines 95-96)
     mock_et.ENsetstatusreport.side_effect = Exception("Fail")
-    ext.write_text("[INP]\ntest.inp\n[PIPES]\np1 s1\n[PRESSURES]\nn1 20.0\n[PIPE_SIZES]\ns1 100.0 0.1 10.0\n")
+    ext.write_text("[INP]\ntest.inp\n[PIPES]\np1 s1\n[PRESSURES]\nn1 20.0\n[PIPE_CATALOG]\npipe.cat\n")
     (tmp_path / "test.inp").write_text("")
     Optimization(ext)
 
 def test_options_empty_and_retries(mock_et, tmp_path):
     # Lines 133, 138, 151-152
     ext = tmp_path / "opt.ext"
-    ext.write_text("[INP]\ntest.inp\n[OPTIONS]\n \n = \nALGORITHMS DE MACO DE UH\nAlgorithm PSO DE\n")
+    ext.write_text("[INP]\ntest.inp\n[OPTIONS]\n \n = \nALGORITHMS DE MACO DE UH\nAlgorithm PSO DE\n[PIPE_CATALOG]\npipe.cat\n")
     (tmp_path / "test.inp").write_text("")
     opt = Optimization(ext)
     assert opt.max_retries == MAX_RETRIES
@@ -75,8 +74,9 @@ def test_inp_path_can_resolve_from_cwd(mock_et, tmp_path, monkeypatch):
     examples = project / "examples"
     examples.mkdir(parents=True)
     (examples / "net.inp").write_text("")
+    (examples / "pipe.cat").write_text("s1 100.0 0.1 10.0\n")
     ext = examples / "case.ext"
-    ext.write_text("[INP]\n./examples/net.inp\n[PIPES]\np1 s1\n[PRESSURES]\nn1 20.0\n[PIPE_SIZES]\ns1 100.0 0.1 10.0\n")
+    ext.write_text("[INP]\n./examples/net.inp\n[PIPES]\np1 s1\n[PRESSURES]\nn1 20.0\n[PIPE_CATALOG]\npipe.cat\n")
 
     monkeypatch.chdir(project)
     opt = Optimization(Path("examples") / "case.ext")
@@ -179,4 +179,6 @@ def test_cli_and_errors_final(mock_et, example_files):
     with patch('sys.argv', ['ppno', str(ext_path)]), \
          patch.object(Optimization, 'solve', side_effect=Exception("API Error")):
         with pytest.raises(SystemExit): main()
+
+
 

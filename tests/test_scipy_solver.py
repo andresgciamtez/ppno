@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 from unittest.mock import MagicMock, patch
 from ppno.scipy_solver import solve_scipy, SolverTimeoutError
-from ppno.constants import ALGORITHM_DE, ALGORITHM_DA, ALGORITHM_DIRECT
+from ppno.constants import ALGORITHM_DE, ALGORITHM_DA
 
 @pytest.fixture
 def mock_opt():
@@ -39,16 +39,6 @@ def test_solve_scipy_da(mock_opt):
         
         res = solve_scipy(mock_opt, ALGORITHM_DA, initial_x=np.array([0, 0]))
         assert np.array_equal(res, [1, 2])
-
-def test_solve_scipy_direct(mock_opt):
-    with patch('scipy.optimize.direct') as mock_direct:
-        mock_res = MagicMock()
-        mock_res.x = np.array([3, 4])
-        mock_direct.return_value = mock_res
-        mock_opt.check.return_value = True
-        
-        res = solve_scipy(mock_opt, ALGORITHM_DIRECT)
-        assert np.array_equal(res, [3, 4])
 
 def test_solve_scipy_unknown_alg(mock_opt):
     # This covers line 87 (unknown algorithm ID)

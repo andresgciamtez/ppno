@@ -1,6 +1,6 @@
 [TITLE]
 ; Free text title for the optimization case.
-Optimization of the Balerma Irrigation Network (Reca & MartÃ­nez, 2006)
+Optimization of the Balerma Irrigation Network (Reca & MartÃƒÂ­nez, 2006)
 
 [INP]
 ; EPANET .inp model file. Relative paths may be written from the current
@@ -10,13 +10,17 @@ Optimization of the Balerma Irrigation Network (Reca & MartÃ­nez, 2006)
 [OPTIONS]
 ; Optional section. If Algorithm is omitted, PPNO only runs the mandatory
 ; Unit Headloss heuristic and FLS-H local refinement.
-; Available algorithms: DE DA DIRECT NSGA2 MOEAD MACO PSO
+; Available algorithms: DE DA NSGA2 MOEAD MACO PSO
 Algorithm DE DA NSGA2 MOEAD MACO PSO
+
+[PIPE_CATALOG]
+; Pipe catalog file with group, diameter, roughness and price columns.
+example_3.cat
 
 [PIPES]
 ; EPANET pipe ID    pipe-size group
 ; Each ID must match a pipe/link ID in the EPANET .inp model.
-; The pipe-size group selects which [PIPE_SIZES] entries may be assigned to that pipe.
+; The pipe-size group selects which catalog entries may be assigned to that pipe.
 1	PVC
 2	PVC
 3	PVC
@@ -919,22 +923,7 @@ Algorithm DE DA NSGA2 MOEAD MACO PSO
 304    20.0
 422    20.0
 
-[PIPE_SIZES]
-; pipe-size group    diameter    roughness    unit price
-; Diameters in each group must be strictly increasing.
-PVC         113.0    0.0025      7.22
-PVC         126.6    0.0025      9.10
-PVC         144.6    0.0025     11.92
-PVC         162.8    0.0025     14.84
-PVC         180.8    0.0025     18.38
-PVC         226.2    0.0025     28.26
-PVC         285.0    0.0025     45.39
-PVC         361.8    0.0025     76.32
-PVC         452.2    0.0025    124.64
-PVC         581.8    0.0025    215.85
-PVC         723.8    0.0025    261.95
-PVC         904.8    0.0025    409.30
-
 [END]
+
 
 

@@ -5,10 +5,9 @@ ALGORITHM_UH = 0       # Unit Headloss Heuristic
 ALGORITHM_DE = 1       # SciPy: Differential Evolution
 ALGORITHM_DA = 2       # SciPy: Dual Annealing
 ALGORITHM_NSGA2 = 3    # PyGMO: Non-dominated Sorting Genetic Algorithm II
-ALGORITHM_DIRECT = 4   # SciPy: DIRECT algorithm
-ALGORITHM_MOEAD = 5    # PyGMO: Multi-Objective Evolutionary Algorithm based on Decomposition
-ALGORITHM_MACO = 6     # PyGMO: Multi-objective Ant Colony Optimizer
-ALGORITHM_PSO = 7      # PyGMO: Non-dominated Sorting Particle Swarm Optimizer
+ALGORITHM_MOEAD = 4    # PyGMO: Multi-Objective Evolutionary Algorithm based on Decomposition
+ALGORITHM_MACO = 5     # PyGMO: Multi-objective Ant Colony Optimizer
+ALGORITHM_PSO = 6      # PyGMO: Non-dominated Sorting Particle Swarm Optimizer
 
 # Global Optimization Parameters
 PENALTY_VALUE = 1e9          # Base penalty added to infeasible solutions in SciPy

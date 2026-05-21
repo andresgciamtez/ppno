@@ -10,13 +10,17 @@ Optimization of the Hanoi Network (Fujiwara & Khang, 1990)
 [OPTIONS]
 ; Optional section. If Algorithm is omitted, PPNO only runs the mandatory
 ; Unit Headloss heuristic and FLS-H local refinement.
-; Available algorithms: DE DA DIRECT NSGA2 MOEAD MACO PSO
+; Available algorithms: DE DA NSGA2 MOEAD MACO PSO
 Algorithm DE
+
+[PIPE_CATALOG]
+; Pipe catalog file with group, diameter, roughness and price columns.
+example_1.cat
 
 [PIPES]
 ; EPANET pipe ID    pipe-size group
 ; Each ID must match a pipe/link ID in the EPANET .inp model.
-; The pipe-size group selects which [PIPE_SIZES] entries may be assigned to that pipe.
+; The pipe-size group selects which catalog entries may be assigned to that pipe.
 1    PVC-SDR41
 2    PVC-SDR41
 3    PVC-SDR41
@@ -87,14 +91,5 @@ Algorithm DE
 31    30.0
 32    30.0
 
-[PIPE_SIZES]
-; pipe-size group    diameter    roughness    unit price
-; Diameters in each group must be strictly increasing.
-PVC-SDR41     289.9        130.0    45.73
-PVC-SDR41     386.6        130.0    70.40
-PVC-SDR41     483.2        130.0    98.39
-PVC-SDR41     579.9        130.0   129.33
-PVC-SDR41     724.8        130.0   180.75
-PVC-SDR41     966.4        130.0   278.28
-
 [END]
+

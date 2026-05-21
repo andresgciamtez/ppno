@@ -20,7 +20,7 @@ The optimizer is built around a two-stage workflow:
 - Optional Stage 2 global search with SciPy and PyGMO algorithms.
 - Feasible-solution seeding for metaheuristics.
 - `.scn` result files for successful Stage 2 algorithms.
-- Semantic validation for missing entities, invalid pipe sizes, and option names.
+- Semantic validation for missing entities, invalid pipe catalog entries, and option names.
 - Multi-encoding support for `.ext` files: UTF-8, UTF-16, CP1252, then Latin-1 fallback.
 
 ## Installation
@@ -141,7 +141,6 @@ Stage 2 with SciPy:
 
 - `DE` - Differential Evolution
 - `DA` - Dual Annealing
-- `DIRECT` - DIRECT
 
 Stage 2 with PyGMO:
 
@@ -185,7 +184,7 @@ Required. Maps EPANET pipe/link IDs to PPNO pipe-size group names.
 ```
 
 The first column must match a link ID in the EPANET model. The second column
-must match a group defined in `[PIPE_SIZES]`.
+must match a group defined in the external pipe catalog.
 
 ### `[PRESSURES]`
 
@@ -200,13 +199,24 @@ Required. Minimum pressure constraints.
 The first column must match an EPANET node ID. The second column is the minimum
 required pressure in the same units used by the EPANET model.
 
-### `[PIPE_SIZES]`
+### `[PIPE_CATALOG]`
 
-Required. Available pipe options grouped by `group`. `[PIPE_SIZES]` and `group`
-are PPNO problem-file terms, not EPANET sections.
+Required. Path to the external pipe catalog file. Relative paths are resolved
+from the current working directory, the `.ext` file directory, or the `.ext`
+file directory using only the catalog file name.
 
 ```ini
-[PIPE_SIZES]
+[PIPE_CATALOG]
+example.cat
+```
+
+### Pipe Catalog (`.cat`)
+
+Required. Plain text table with one pipe option per row. The file does not use
+section headers.
+
+```text
+; group    diameter    roughness    unit price
 PVC-SDR41     289.9    130.0     45.73
 PVC-SDR41     386.6    130.0     70.40
 ```
@@ -231,6 +241,9 @@ expensive.
 [OPTIONS]
 Algorithm DE NSGA2
 
+[PIPE_CATALOG]
+example.cat
+
 [PIPES]
 1    PVC-SDR41
 2    PVC-SDR41
@@ -238,8 +251,11 @@ Algorithm DE NSGA2
 [PRESSURES]
 2    30.0
 3    30.0
+```
 
-[PIPE_SIZES]
+`example.cat`:
+
+```text
 PVC-SDR41     289.9    130.0     45.73
 PVC-SDR41     386.6    130.0     70.40
 PVC-SDR41     483.2    130.0     98.39
