@@ -14,9 +14,9 @@ Optimization of the Hanoi Network (Fujiwara & Khang, 1990)
 Algorithm DE
 
 [PIPES]
-; EPANET pipe ID    catalog series
+; EPANET pipe ID    pipe-size group
 ; Each ID must match a pipe/link ID in the EPANET .inp model.
-; The catalog series selects which [CATALOG] entries may be assigned to that pipe.
+; The pipe-size group selects which [PIPE_SIZES] entries may be assigned to that pipe.
 1    PVC-SDR41
 2    PVC-SDR41
 3    PVC-SDR41
@@ -87,9 +87,9 @@ Algorithm DE
 31    30.0
 32    30.0
 
-[CATALOG]
-; catalog series    diameter    roughness    unit price
-; Diameters in each series must be strictly increasing.
+[PIPE_SIZES]
+; pipe-size group    diameter    roughness    unit price
+; Diameters in each group must be strictly increasing.
 PVC-SDR41     289.9        130.0    45.73
 PVC-SDR41     386.6        130.0    70.40
 PVC-SDR41     483.2        130.0    98.39

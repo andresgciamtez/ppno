@@ -14,9 +14,9 @@ Optimization of the New York Network (Murphy, Simpson & Dandy, 1993)
 Algorithm DE
 
 [PIPES]
-; EPANET pipe ID    catalog series
+; EPANET pipe ID    pipe-size group
 ; Each ID must match a pipe/link ID in the EPANET .inp model.
-; The catalog series selects which [CATALOG] entries may be assigned to that pipe.
+; The pipe-size group selects which [PIPE_SIZES] entries may be assigned to that pipe.
 101    NYT
 102    NYT
 103    NYT
@@ -62,9 +62,9 @@ Algorithm DE
 19    110.546
 20    110.546
 
-[CATALOG]
-; catalog series    diameter    roughness    unit price
-; Diameters in each series must be strictly increasing.
+[PIPE_SIZES]
+; pipe-size group    diameter    roughness    unit price
+; Diameters in each group must be strictly increasing.
 NYT        0.001     100.0      0.00 ; 0.001 = not replace pipe
 NYT           36     100.0     93.50
 NYT           48     100.0    134.00

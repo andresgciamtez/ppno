@@ -73,7 +73,7 @@ class Optimization:
     """Core class for pipe network optimization.
 
     Coordinates the hydraulic simulation and the optimization algorithms to
-    find the best pipe diameters from a given catalog.
+        find the best pipe diameters from the available pipe-size groups.
 
     Attributes:
         problem_file (Path): Path to the .ext problem definition file.
@@ -82,7 +82,7 @@ class Optimization:
         algorithm (int): Chosen optimization algorithm ID.
         pipes (np.ndarray): Array of pipes to be sized.
         nodes (np.ndarray): Array of nodes to check for pressure requirements.
-        catalog (Dict[str, np.ndarray]): Available pipe series and their properties.
+        pipe_sizes (Dict[str, np.ndarray]): Available pipe-size groups and their properties.
         dimension (int): Number of variable pipes.
         lbound (np.ndarray): Lower bounds for variable indexes.
         ubound (np.ndarray): Upper bounds for variable indexes.
@@ -96,7 +96,7 @@ class Optimization:
         """Initialize the optimization problem and perform full semantic validation.
 
         Reads the problem definition from the `.ext` file, locates the associated EPANET 
-        `.inp` model, and validates all entities (pipes, nodes, catalogs) to ensure 
+        `.inp` model, and validates all entities (pipes, nodes, pipe sizes) to ensure 
         hydraulic and logical consistency before proceeding with optimization.
 
         Args:
@@ -107,7 +107,7 @@ class Optimization:
             FileNotFoundError: If the specified `.ext` file or its referenced `.inp` model 
                 cannot be found.
             ValueError: If the configuration validation fails due to syntax errors, missing 
-                hydraulic entities, or logical inconsistencies (e.g., non-monotonic catalogs).
+                hydraulic entities, or logical inconsistencies (e.g., non-monotonic pipe sizes).
         """
         self.problem_file = Path(problem_file)
         if not self.problem_file.exists():
@@ -165,12 +165,12 @@ class Optimization:
 
             self._load_pipes(sections.get('PIPES', []), parser)
             self._load_pressures(sections.get('PRESSURES', []), parser)
-            self._load_catalog(sections.get('CATALOG', []), parser)
+            self._load_pipe_sizes(sections.get('PIPE_SIZES', []), parser)
 
             self.dimension = len(self.pipes)
             self._current_x = np.zeros(self.dimension, dtype=np.int32)
             self.lbound = np.zeros(self.dimension, dtype=np.int32)
-            self.ubound = np.array([len(self.catalog[str(p['series'])]) - 1 for p in self.pipes], dtype=np.int32)
+            self.ubound = np.array([len(self.pipe_sizes[str(p['group'])]) - 1 for p in self.pipes], dtype=np.int32)
         except Exception:
             self.close()
             raise
@@ -201,27 +201,27 @@ class Optimization:
             else:
                 errors.append(f"Line {line_num}: Unsupported option '{tokens[0]}'. [OPTIONS] only supports Algorithm")
 
-        # Check Pipes Existence and Series
+        # Check pipe existence and pipe-size group references
         pipes_lines = sections.get('PIPES', [])
-        catalog_names = set()
-        for _, content in sections.get('CATALOG', []):
+        pipe_size_groups = set()
+        for _, content in sections.get('PIPE_SIZES', []):
             tokens = parser.line_to_tuple(content)
             if len(tokens) >= 4:
-                catalog_names.add(tokens[0])
+                pipe_size_groups.add(tokens[0])
 
         for line_num, content in pipes_lines:
             tokens = parser.line_to_tuple(content)
             if len(tokens) < 2:
-                errors.append(f"Line {line_num}: Invalid pipe definition. Expected 'ID SERIES'")
+                errors.append(f"Line {line_num}: Invalid pipe definition. Expected 'ID GROUP'")
                 continue
-            pipe_id, series_name = tokens[0], tokens[1]
+            pipe_id, group_name = tokens[0], tokens[1]
             try:
                 et.ENgetlinkindex(pipe_id)
             except Exception:
                 errors.append(f"Line {line_num}: Pipe '{pipe_id}' not found in hydraulic model")
             
-            if series_name not in catalog_names:
-                errors.append(f"Line {line_num}: Catalog series '{series_name}' not defined in [CATALOG]")
+            if group_name not in pipe_size_groups:
+                errors.append(f"Line {line_num}: Pipe-size group '{group_name}' not defined in [PIPE_SIZES]")
 
         # Check Nodes and Pressures
         pressures_lines = sections.get('PRESSURES', [])
@@ -240,27 +240,27 @@ class Optimization:
             except ValueError:
                 errors.append(f"Line {line_num}: Invalid pressure value '{min_p}'")
 
-        # Check Catalog Consistency (Strictly Increasing Diameter)
-        temp_cat = {}
-        for line_num, content in sections.get('CATALOG', []):
+        # Check pipe-size group consistency (strictly increasing diameter)
+        temp_sizes = {}
+        for line_num, content in sections.get('PIPE_SIZES', []):
             tokens = parser.line_to_tuple(content)
             if not tokens: continue
             if len(tokens) < 4:
-                errors.append(f"Line {line_num}: Invalid catalog definition. Expected 'SERIES DIAMETER ROUGHNESS PRICE'")
+                errors.append(f"Line {line_num}: Invalid pipe size definition. Expected 'GROUP DIAMETER ROUGHNESS PRICE'")
                 continue
             try:
                 sn, d, r, p = tokens[0], float(tokens[1]), float(tokens[2]), float(tokens[3])
             except ValueError:
-                errors.append(f"Line {line_num}: Invalid numeric values in catalog '{tokens[0]}'")
+                errors.append(f"Line {line_num}: Invalid numeric values in pipe-size group '{tokens[0]}'")
                 continue
             
-            if sn not in temp_cat: temp_cat[sn] = []
-            temp_cat[sn].append({'d': d, 'p': p, 'line': line_num})
+            if sn not in temp_sizes: temp_sizes[sn] = []
+            temp_sizes[sn].append({'d': d, 'p': p, 'line': line_num})
 
-        for sn, items in temp_cat.items():
+        for sn, items in temp_sizes.items():
             for i in range(1, len(items)):
                 if items[i]['d'] <= items[i-1]['d']:
-                    errors.append(f"Line {items[i]['line']}: Diameter must be strictly increasing in series '{sn}'")
+                    errors.append(f"Line {items[i]['line']}: Diameter must be strictly increasing in group '{sn}'")
                 if items[i]['p'] <= items[i-1]['p']:
                      logger.warning(f"Line {items[i]['line']}: Price {items[i]['p']} is not greater than {items[i-1]['p']} for larger diameter (Anomalous)")
 
@@ -271,6 +271,7 @@ class Optimization:
         """Parses the OPTIONS section."""
         self.algorithms = []  # Stage 2 metaheuristics; empty = only UH + FLS-H
         self.max_retries = MAX_RETRIES
+        seen_algorithms = set()
 
         for line_num, content in options_lines:
             tokens = parser.line_to_tuple(content)
@@ -286,11 +287,12 @@ class Optimization:
             values = tokens[1:]
 
             if key in ['ALGORITHM', 'ALGORITHMS'] and values:
-                self.algorithms = [
-                    ALGORITHM_BY_NAME[v.upper()]
-                    for v in values
-                    if ALGORITHM_BY_NAME[v.upper()] != ALGORITHM_UH
-                ]
+                for value in values:
+                    algorithm_id = ALGORITHM_BY_NAME[value.upper()]
+                    if algorithm_id == ALGORITHM_UH or algorithm_id in seen_algorithms:
+                        continue
+                    self.algorithms.append(algorithm_id)
+                    seen_algorithms.add(algorithm_id)
                 logger.info(f"Optional Metaheuristics: {', '.join(values)}")
 
     def _apply_random_seed(self) -> None:
@@ -304,14 +306,14 @@ class Optimization:
 
     def _load_pipes(self, pipe_lines: List[Tuple[int, str]], parser: sp.SectionParser) -> None:
         """Parses the PIPES section."""
-        dt = np.dtype([('link_idx', 'i4'), ('id', 'U16'), ('length', 'f4'), ('series', 'U16')])
+        dt = np.dtype([('link_idx', 'i4'), ('id', 'U16'), ('length', 'f4'), ('group', 'U16')])
         data = []
         for line_num, content in pipe_lines:
             tokens = parser.line_to_tuple(content)
-            pipe_id, series_name = tokens[0], tokens[1]
+            pipe_id, group_name = tokens[0], tokens[1]
             link_idx = et.ENgetlinkindex(pipe_id)
             length = et.ENgetlinkvalue(link_idx, et.EN_LENGTH)
-            data.append((link_idx, pipe_id, length, series_name))
+            data.append((link_idx, pipe_id, length, group_name))
 
         self.pipes = np.array(data, dt)
         logger.info(f"Loaded {len(self.pipes)} pipes for sizing.")
@@ -329,25 +331,25 @@ class Optimization:
         self.nodes = np.array(data, dtype=dt)
         logger.info(f"Loaded {len(self.nodes)} pressure constraints.")
 
-    def _load_catalog(self, catalog_lines: List[Tuple[int, str]], parser: sp.SectionParser) -> None:
-        """Parses the CATALOG section."""
+    def _load_pipe_sizes(self, pipe_size_lines: List[Tuple[int, str]], parser: sp.SectionParser) -> None:
+        """Parses the PIPE_SIZES section."""
         dt = np.dtype([('diameter', 'f4'), ('roughness', 'f4'), ('price', 'f4')])
-        required_series = set(str(p['series']) for p in self.pipes)
+        required_groups = set(str(p['group']) for p in self.pipes)
 
-        raw_data: Dict[str, List[Tuple[float, float, float]]] = {s: [] for s in required_series}
-        for line_num, content in catalog_lines:
+        raw_data: Dict[str, List[Tuple[float, float, float]]] = {s: [] for s in required_groups}
+        for line_num, content in pipe_size_lines:
             tokens = parser.line_to_tuple(content)
             if len(tokens) < 4:
                 continue
             sn, d, r, p = tokens[0], tokens[1], tokens[2], tokens[3]
-            if sn in required_series:
+            if sn in required_groups:
                 raw_data[sn].append((float(d), float(r), float(p)))
 
-        self.catalog = {
+        self.pipe_sizes = {
             name: np.sort(np.array(data, dtype=dt), order='diameter')
             for name, data in raw_data.items()
         }
-        logger.info(f"Loaded {len(self.catalog)} pipe series catalogs.")
+        logger.info(f"Loaded {len(self.pipe_sizes)} pipe-size groups.")
 
     def set_x(self, x: np.ndarray) -> None:
         """Updates the hydraulic model with the new diameter indexes."""
@@ -355,12 +357,12 @@ class Optimization:
         for i, pipe in enumerate(self.pipes):
             link_idx = int(pipe['link_idx'])
             pipe_id = str(pipe['id'])
-            series = self.catalog[str(pipe['series'])]
+            group = self.pipe_sizes[str(pipe['group'])]
             size_idx = int(self._current_x[i])
 
             try:
-                et.ENsetlinkvalue(link_idx, et.EN_DIAMETER, float(series[size_idx]['diameter']))
-                et.ENsetlinkvalue(link_idx, et.EN_ROUGHNESS, float(series[size_idx]['roughness']))
+                et.ENsetlinkvalue(link_idx, et.EN_DIAMETER, float(group[size_idx]['diameter']))
+                et.ENsetlinkvalue(link_idx, et.EN_ROUGHNESS, float(group[size_idx]['roughness']))
             except Exception as e:
                 logger.error(f"Failed to set hydraulic values for pipe {pipe_id} (index {link_idx}): {e}")
 
@@ -443,7 +445,7 @@ class Optimization:
         total = 0.0
         x = self.get_x()
         for i, pipe in enumerate(self.pipes):
-            total += float(pipe['length']) * float(self.catalog[str(pipe['series'])][int(x[i])]['price'])
+            total += float(pipe['length']) * float(self.pipe_sizes[str(pipe['group'])][int(x[i])]['price'])
         return total
 
     def solve(self) -> Optional[np.ndarray]:
@@ -509,7 +511,6 @@ class Optimization:
         })
         self.algorithm = ALGORITHM_UH
         self.best_algorithm_name = ALGORITHM_NAMES[ALGORITHM_UH]
-        self._save_scn_result("UH")
         return solution, cost
 
     def _run_stage_2(self, best_sol: np.ndarray, best_cost: float) -> Tuple[np.ndarray, float]:
@@ -537,6 +538,8 @@ class Optimization:
         """Handles the retry loop and performance tracking for a single metaheuristic."""
         best_sol = overall_best_sol
         best_cost = overall_best_cost
+        algorithm_best_sol = None
+        algorithm_best_cost = float('inf')
 
         for attempt in range(1, self.max_retries + 1):
             logger.info("-" * 40)
@@ -552,6 +555,9 @@ class Optimization:
             if meta_solution is not None:
                 self.set_x(meta_solution)
                 meta_cost = self.get_cost()
+                if meta_cost < algorithm_best_cost:
+                    algorithm_best_cost = meta_cost
+                    algorithm_best_sol = meta_solution.copy()
                 
                 if meta_cost < best_cost:
                     logger.info(f"      [ACCEPTED] Improved cost found: {meta_cost:.2f} (Previous: {best_cost:.2f})")
@@ -567,7 +573,6 @@ class Optimization:
                     'Time (s)': f"{duration:.2f}", 'Simulations': self.simulation_cycles,
                     'Cost': f"{meta_cost:.2f}"
                 })
-                self._save_scn_result(alg_name)
                 if meta_cost < overall_best_cost:
                     break
             else:
@@ -575,6 +580,11 @@ class Optimization:
                     'Algorithm': alg_name, 'Attempt': attempt, 'Success': "NO",
                     'Time (s)': f"{duration:.2f}", 'Simulations': self.simulation_cycles, 'Cost': "-"
                 })
+
+        if algorithm_best_sol is not None:
+            self.set_x(algorithm_best_sol)
+            self._save_scn_result(alg_name)
+            self.set_x(best_sol)
         
         return best_sol, best_cost
 
@@ -697,19 +707,27 @@ class Optimization:
 
         try:
             with open(scn_path, 'w', encoding='utf-8') as f:
-                f.write("[PIPES]\n")
-                f.write(f"; Result for algorithm: {algorithm_name}\n")
-                f.write(f"; {'ID':<16} {'Diameter':>12} {'Roughness':>12}\n")
-
                 x = self.get_x()
+
+                f.write("[DIAMETERS]\n")
+                f.write(f"; Result for algorithm: {algorithm_name}\n")
+                f.write(f";{'Pipe':<16}\tDiameter\n")
                 for i, pipe in enumerate(self.pipes):
                     pipe_id = str(pipe['id'])
-                    series = self.catalog[str(pipe['series'])]
+                    group = self.pipe_sizes[str(pipe['group'])]
                     size_idx = int(x[i])
-                    diameter = float(series[size_idx]['diameter'])
-                    roughness = float(series[size_idx]['roughness'])
+                    diameter = float(group[size_idx]['diameter'])
+                    f.write(f" {pipe_id:<16}\t{diameter:.4f}\n")
 
-                    f.write(f" {pipe_id:<16} {diameter:>12.4f} {roughness:>12.6f}\n")
+                f.write("\n\n[ROUGHNESS]\n")
+                f.write(f";{'Pipe':<16}\tRoughness\n")
+                for i, pipe in enumerate(self.pipes):
+                    pipe_id = str(pipe['id'])
+                    group = self.pipe_sizes[str(pipe['group'])]
+                    size_idx = int(x[i])
+                    roughness = float(group[size_idx]['roughness'])
+
+                    f.write(f" {pipe_id:<16}\t{roughness:.6f}\n")
 
             logger.info(f"Results saved to SCN file: {scn_path}")
         except Exception as e:
@@ -722,9 +740,6 @@ class Optimization:
         logger.info(f"Success! Final Network Cost: {cost:.2f}")
         logger.info(f"Best source algorithm: {self.best_algorithm_name}")
 
-        # Save final result to SCN file
-        self._save_scn_result("Final")
-
     def pretty_print(self, x: np.ndarray) -> None:
         """Displays the solution in a formatted table."""
         logger.info("\n" + "*" * 20 + " FINAL SOLUTION " + "*" * 20)
@@ -733,10 +748,10 @@ class Optimization:
 
         for i, pipe in enumerate(self.pipes):
             size = int(x[i])
-            cat = self.catalog[str(pipe['series'])][size]
+            cat = self.pipe_sizes[str(pipe['group'])][size]
             d, r, p = float(cat['diameter']), float(cat['roughness']), float(cat['price'])
             length = float(pipe['length'])
-            logger.info(f"{str(pipe['id']):>16} {str(pipe['series']):>12} {d:8.1f} {r:8.4f} {length:8.1f} {p:8.2f} {length * p:10.2f}")
+            logger.info(f"{str(pipe['id']):>16} {str(pipe['group']):>12} {d:8.1f} {r:8.4f} {length:8.1f} {p:8.2f} {length * p:10.2f}")
 
         logger.info("-" * 80)
         logger.info(f"TOTAL NETWORK COST: {self.get_cost():.2f}")

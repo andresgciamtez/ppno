@@ -9,9 +9,9 @@ def mock_sim():
     size = 10
     sim.pipes = np.array([
         (i, f'p{i}', 100.0, 's1') for i in range(size)
-    ], dtype=[('link_idx', 'i4'), ('id', 'U16'), ('length', 'f4'), ('series', 'U16')])
+    ], dtype=[('link_idx', 'i4'), ('id', 'U16'), ('length', 'f4'), ('group', 'U16')])
     
-    sim.catalog = {
+    sim.pipe_sizes = {
         's1': np.array([
             (100.0, 0.1, 10.0),
             (200.0, 0.1, 25.0)

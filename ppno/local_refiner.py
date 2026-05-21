@@ -144,7 +144,7 @@ class LocalRefiner:
             indices = np.random.choice(n_vars, n_mutations, replace=False)
             
             for idx in indices:
-                # Small perturbation: one catalog step up or down.
+                # Small perturbation: one pipe-size step up or down.
                 step = 1 if np.random.random() > 0.5 else -1
                 new_x[idx] = np.clip(new_x[idx] + step, self.simulation.lbound[idx], self.simulation.ubound[idx])
             
@@ -156,7 +156,7 @@ class LocalRefiner:
         """Apply hydraulic engineering repair rules to a candidate solution.
         
         Currently, this enforces strict adherence to the upper and lower bounds
-        of the available catalog indices, ensuring no out-of-bounds array access occurs.
+        of the available pipe-size indices, ensuring no out-of-bounds array access occurs.
 
         Args:
             x (np.ndarray): A potentially out-of-bounds candidate vector.
@@ -215,13 +215,13 @@ class LocalRefiner:
             bool: True if the candidate's cost is within acceptable limits, False otherwise.
         """
         pipes = self.simulation.pipes
-        catalog = self.simulation.catalog
+        pipe_sizes = self.simulation.pipe_sizes
         
         approx_cost = 0.0
         for i, pipe in enumerate(pipes):
-            sn = str(pipe['series'])
+            group = str(pipe['group'])
             idx = int(x[i])
-            approx_cost += float(pipe['length']) * float(catalog[sn][idx]['price'])
+            approx_cost += float(pipe['length']) * float(pipe_sizes[group][idx]['price'])
             
         # Accept if cost is lower or only slightly higher (to allow finding feasible paths)
         return approx_cost < (current_cost * (1.0 + self.acceptance_threshold))

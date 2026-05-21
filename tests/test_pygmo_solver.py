@@ -13,9 +13,9 @@ def mock_pg():
 @pytest.fixture
 def mock_opt():
     opt = MagicMock()
-    opt.pipes = np.array([(0, 'p1', 100.0, 's1')], dtype=[('link_idx', 'i4'), ('id', 'U16'), ('length', 'f4'), ('series', 'U16')])
-    # Catalog with 2 entries to allow variety
-    opt.catalog = {'s1': np.array([(100.0, 0.1, 10.0), (200.0, 0.1, 25.0)], dtype=[('diameter', 'f4'), ('roughness', 'f4'), ('price', 'f4')])}
+    opt.pipes = np.array([(0, 'p1', 100.0, 's1')], dtype=[('link_idx', 'i4'), ('id', 'U16'), ('length', 'f4'), ('group', 'U16')])
+    # pipe sizes with 2 entries to allow variety
+    opt.pipe_sizes = {'s1': np.array([(100.0, 0.1, 10.0), (200.0, 0.1, 25.0)], dtype=[('diameter', 'f4'), ('roughness', 'f4'), ('price', 'f4')])}
     opt.lbound = np.array([0])
     opt.ubound = np.array([1])
     opt.simulation_cycles = 10

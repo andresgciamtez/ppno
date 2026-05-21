@@ -28,7 +28,7 @@ def solve_scipy(opt_instance, alg_id: int, initial_x: Optional[np.ndarray] = Non
     This function configures and executes SciPy's continuous global optimizers
     (Differential Evolution, Dual Annealing, or DIRECT). Since these optimizers
     work with continuous variables, the objective function automatically rounds
-    candidate vectors to the nearest integer index to map them to discrete catalog entries.
+    candidate vectors to the nearest integer index to map them to discrete pipe-size entries.
 
     The objective function employs a guided penalty mechanism:
     - If the solution is feasible, the true network cost is returned.

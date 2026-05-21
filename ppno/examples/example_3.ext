@@ -14,9 +14,9 @@ Optimization of the Balerma Irrigation Network (Reca & MartÃ­nez, 2006)
 Algorithm DE DA NSGA2 MOEAD MACO PSO
 
 [PIPES]
-; EPANET pipe ID    catalog series
+; EPANET pipe ID    pipe-size group
 ; Each ID must match a pipe/link ID in the EPANET .inp model.
-; The catalog series selects which [CATALOG] entries may be assigned to that pipe.
+; The pipe-size group selects which [PIPE_SIZES] entries may be assigned to that pipe.
 1	PVC
 2	PVC
 3	PVC
@@ -919,9 +919,9 @@ Algorithm DE DA NSGA2 MOEAD MACO PSO
 304    20.0
 422    20.0
 
-[CATALOG]
-; catalog series    diameter    roughness    unit price
-; Diameters in each series must be strictly increasing.
+[PIPE_SIZES]
+; pipe-size group    diameter    roughness    unit price
+; Diameters in each group must be strictly increasing.
 PVC         113.0    0.0025      7.22
 PVC         126.6    0.0025      9.10
 PVC         144.6    0.0025     11.92

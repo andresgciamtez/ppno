@@ -43,7 +43,7 @@ def example_files(tmp_path):
         "[INP]\ntest.inp\n"
         "[PIPES]\np1 s1\n"
         "[PRESSURES]\nn1 20.0\n"
-        "[CATALOG]\ns1 100.0 0.1 10.0\ns1 200.0 0.1 20.0\n"
+        "[PIPE_SIZES]\ns1 100.0 0.1 10.0\ns1 200.0 0.1 20.0\n"
     )
     ext_path.write_text(ext_content)
     return ext_path, inp_path
@@ -56,18 +56,19 @@ def test_init_all_branches(mock_et, tmp_path):
     
     # 2. Defensive et call (lines 95-96)
     mock_et.ENsetstatusreport.side_effect = Exception("Fail")
-    ext.write_text("[INP]\ntest.inp\n[PIPES]\np1 s1\n[PRESSURES]\nn1 20.0\n[CATALOG]\ns1 100.0 0.1 10.0\n")
+    ext.write_text("[INP]\ntest.inp\n[PIPES]\np1 s1\n[PRESSURES]\nn1 20.0\n[PIPE_SIZES]\ns1 100.0 0.1 10.0\n")
     (tmp_path / "test.inp").write_text("")
     Optimization(ext)
 
 def test_options_empty_and_retries(mock_et, tmp_path):
     # Lines 133, 138, 151-152
     ext = tmp_path / "opt.ext"
-    ext.write_text("[INP]\ntest.inp\n[OPTIONS]\n \n = \nALGORITHMS DE MACO PSO\n")
+    ext.write_text("[INP]\ntest.inp\n[OPTIONS]\n \n = \nALGORITHMS DE MACO DE UH\nAlgorithm PSO DE\n")
     (tmp_path / "test.inp").write_text("")
     opt = Optimization(ext)
     assert opt.max_retries == MAX_RETRIES
     assert len(opt.algorithms) == 3
+    assert opt.algorithms == [ALGORITHM_DE, ALGORITHM_MACO, ALGORITHM_PSO]
 
 def test_inp_path_can_resolve_from_cwd(mock_et, tmp_path, monkeypatch):
     project = tmp_path / "project"
@@ -75,7 +76,7 @@ def test_inp_path_can_resolve_from_cwd(mock_et, tmp_path, monkeypatch):
     examples.mkdir(parents=True)
     (examples / "net.inp").write_text("")
     ext = examples / "case.ext"
-    ext.write_text("[INP]\n./examples/net.inp\n[PIPES]\np1 s1\n[PRESSURES]\nn1 20.0\n[CATALOG]\ns1 100.0 0.1 10.0\n")
+    ext.write_text("[INP]\n./examples/net.inp\n[PIPES]\np1 s1\n[PRESSURES]\nn1 20.0\n[PIPE_SIZES]\ns1 100.0 0.1 10.0\n")
 
     monkeypatch.chdir(project)
     opt = Optimization(Path("examples") / "case.ext")
@@ -93,17 +94,21 @@ def test_solve_full_logic_coverage(mock_et, example_files):
     with patch('ppno.scipy_solver.solve_scipy', return_value=np.array([0])), \
          patch('ppno.pygmo_solver.maco', return_value=([0, 0], [1])), \
          patch('ppno.pygmo_solver.nspso', return_value=(None, None)), \
-         patch.object(Optimization, 'get_cost', side_effect=[1000, 900, 500, 500, 500, 500, 500, 500, 500]):
+         patch.object(Optimization, 'get_cost', side_effect=[1000, 900, 500, 500, 500, 500, 500, 500, 500]), \
+         patch.object(Optimization, '_save_scn_result') as save_scn:
         # Initial 1000 -> DE 900 (Improvement 365-366) -> MACO 500 -> PSO Fail (375)
         res = opt.solve()
         assert res is not None
         assert any(r['Algorithm'] == 'MACO' and r['Success'] == 'YES' for r in opt.results)
         assert any(r['Algorithm'] == 'PSO' and r['Success'] == 'NO' for r in opt.results)
+        assert [call.args[0] for call in save_scn.call_args_list] == ['DE', 'MACO']
 
     # 3. Stage 2 Skip (line 389)
     opt.algorithms = []
-    with patch.object(Optimization, '_solve_uh', return_value=np.array([0])):
+    with patch.object(Optimization, '_solve_uh', return_value=np.array([0])), \
+         patch.object(Optimization, '_save_scn_result') as save_scn:
         opt.solve()
+        save_scn.assert_not_called()
 
 def test_check_and_print_branches(mock_et, example_files, caplog):
     caplog.set_level(logging.INFO)
@@ -117,6 +122,45 @@ def test_check_and_print_branches(mock_et, example_files, caplog):
     # 2. Pretty print branches (line 492)
     opt.pretty_print(np.array([0]))
     assert "TOTAL NETWORK COST" in caplog.text
+
+def test_save_scn_result_uses_diameters_and_roughness(mock_et, example_files):
+    opt = Optimization(example_files[0])
+    opt._save_scn_result("Test")
+
+    scn_path = example_files[1].parent / "test_result_Test.scn"
+    content = scn_path.read_text(encoding="utf-8")
+
+    assert "[DIAMETERS]" in content
+    assert "[ROUGHNESS]" in content
+    assert "[PIPES]" not in content
+    assert "p1" in content
+    assert "100.0000" in content
+    assert "0.100000" in content
+
+def test_stage_2_scn_uses_lowest_cost_success(mock_et, example_files):
+    opt = Optimization(example_files[0])
+    opt.max_retries = 3
+    saved_x = []
+
+    with patch('ppno.scipy_solver.solve_scipy', side_effect=[
+            np.array([1]),
+            np.array([0]),
+            np.array([1]),
+         ]), \
+         patch.object(Optimization, 'get_cost', side_effect=[200.0, 100.0, 200.0]), \
+         patch.object(Optimization, '_save_scn_result', side_effect=lambda _: saved_x.append(opt.get_x().copy())) as save_scn:
+        best_sol, best_cost = opt._execute_metaheuristic(
+            ALGORITHM_DE,
+            'DE',
+            np.array([1]),
+            50.0,
+        )
+
+    assert best_cost == 50.0
+    assert np.array_equal(best_sol, np.array([1]))
+    save_scn.assert_called_once_with('DE')
+    assert np.array_equal(saved_x[0], np.array([0]))
+    assert np.array_equal(opt.get_x(), np.array([1]))
 
 def test_cli_and_errors_final(mock_et, example_files):
     ext_path, _ = example_files

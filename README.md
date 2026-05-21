@@ -1,8 +1,5 @@
 # PPNO - Pressurized Pipe Network Optimizer
 
-2019-2026 - Andres Garcia Martinez
-Licensed under the Apache License 2.0
-
 PPNO is a command-line optimizer for pressurized water distribution networks. It
 uses EPANET as the hydraulic simulator and searches for cost-effective pipe
 diameter assignments that satisfy minimum pressure constraints.
@@ -10,8 +7,8 @@ diameter assignments that satisfy minimum pressure constraints.
 The optimizer is built around a two-stage workflow:
 
 1. Stage 1 always runs a Unit Headloss heuristic followed by FLS-H local
-   refinement. This produces a feasible baseline solution when the catalog and
-   hydraulic model allow one.
+   refinement. This produces a feasible baseline solution when the available
+   pipe sizes and hydraulic model allow one.
 2. Stage 2 runs only when requested in the `[OPTIONS]` section. It seeds global
    metaheuristics with the Stage 1 solution, then applies a final FLS-H polish.
 
@@ -22,8 +19,8 @@ The optimizer is built around a two-stage workflow:
 - FLS-H local refinement with an evaluation cache.
 - Optional Stage 2 global search with SciPy and PyGMO algorithms.
 - Feasible-solution seeding for metaheuristics.
-- Incremental `.scn` result files for each successful stage or algorithm.
-- Semantic validation for missing entities, invalid catalogs, and option names.
+- `.scn` result files for successful Stage 2 algorithms.
+- Semantic validation for missing entities, invalid pipe sizes, and option names.
 - Multi-encoding support for `.ext` files: UTF-8, UTF-16, CP1252, then Latin-1 fallback.
 
 ## Installation
@@ -70,22 +67,31 @@ Fatal optimization or validation errors exit with status code `1`.
 
 ## Output Files
 
-PPNO writes scenario files next to the EPANET `.inp` model:
+PPNO writes scenario files next to the EPANET `.inp` model for successful Stage
+2 algorithm runs:
 
 ```text
-<inp_name>_result_UH.scn
 <inp_name>_result_<algorithm>.scn
-<inp_name>_result_Final.scn
 ```
 
-Each `.scn` file contains an EPANET-style `[PIPES]` section with:
+Each `.scn` file stores a result scenario with `[DIAMETERS]` and `[ROUGHNESS]`
+sections:
 
-- pipe ID
-- optimized diameter
-- roughness coefficient
+```ini
+[DIAMETERS]
+; Result for algorithm: DE
+;Pipe            	Diameter
+ 1               	386.6000
+ 2               	289.9000
 
-The `.scn` format is intentionally lightweight: it stores the optimized pipe
-settings without duplicating the full `.inp` model.
+
+[ROUGHNESS]
+;Pipe            	Roughness
+ 1               	130.000000
+ 2               	130.000000
+```
+
+The `.inp` file remains unchanged.
 
 ## Problem File Format
 
@@ -124,25 +130,6 @@ Recognized option names:
 Solver tuning values are not read from `[OPTIONS]`. They are configured in
 `ppno/constants.py`.
 
-### Solver Constants
-
-Edit `ppno/constants.py` to adjust global solver behavior:
-
-- `MAX_RETRIES` - maximum attempts for each Stage 2 algorithm.
-- `MAX_ALGORITHM_TIME` - time limit, in seconds, for each SciPy or PyGMO
-  algorithm attempt.
-- `RANDOM_SEED` - optional integer seed for NumPy and PyGMO; `None` leaves runs
-  stochastic.
-- `POPULATION_SIZE` - number of individuals in PyGMO populations.
-- `GENERATIONS` - PyGMO generations per evolution trial.
-- `PATIENCE` - PyGMO trials without improvement before convergence is assumed.
-- `MAX_TRIALS` - maximum PyGMO evolution trials per algorithm attempt.
-- `PENALTY_VALUE` - base penalty added to infeasible SciPy objective values.
-- `LS_MAX_ITER` - maximum iterations in the FLS-H refinement loop.
-- `LS_NEIGHBORHOOD_SIZE` - candidate solutions generated per FLS-H iteration.
-- `LS_ACCEPTANCE_THRESHOLD` - allowed temporary cost worsening in FLS-H, as a
-  decimal fraction; `0.01` means 1%.
-
 ### Supported Algorithms
 
 Stage 1:
@@ -163,9 +150,33 @@ Stage 2 with PyGMO:
 - `MACO` - Multi-objective Ant Colony Optimizer
 - `PSO` - Non-dominated Sorting Particle Swarm Optimizer
 
+### Solver Constants
+
+Edit `ppno/constants.py` to adjust global solver behavior:
+
+Global optimization parameters:
+
+- `PENALTY_VALUE` - base penalty added to infeasible SciPy objective values.
+- `MAX_RETRIES` - maximum attempts for each Stage 2 algorithm.
+- `MAX_ALGORITHM_TIME` - time limit, in seconds, for each SciPy or PyGMO
+  algorithm attempt.
+- `RANDOM_SEED` - optional integer seed for NumPy and PyGMO; `None` leaves runs
+  stochastic.
+- `POPULATION_SIZE` - number of individuals in PyGMO populations.
+- `GENERATIONS` - PyGMO generations per evolution trial.
+- `PATIENCE` - PyGMO trials without improvement before convergence is assumed.
+- `MAX_TRIALS` - maximum PyGMO evolution trials per algorithm attempt.
+
+Local search (FLS-H) settings:
+
+- `LS_MAX_ITER` - maximum iterations in the FLS-H refinement loop.
+- `LS_ACCEPTANCE_THRESHOLD` - allowed temporary cost worsening in FLS-H, as a
+  decimal fraction; `0.01` means 1%.
+- `LS_NEIGHBORHOOD_SIZE` - candidate solutions generated per FLS-H iteration.
+
 ### `[PIPES]`
 
-Required. Maps EPANET pipe/link IDs to catalog series names.
+Required. Maps EPANET pipe/link IDs to PPNO pipe-size group names.
 
 ```ini
 [PIPES]
@@ -174,7 +185,7 @@ Required. Maps EPANET pipe/link IDs to catalog series names.
 ```
 
 The first column must match a link ID in the EPANET model. The second column
-must match a series defined in `[CATALOG]`.
+must match a group defined in `[PIPE_SIZES]`.
 
 ### `[PRESSURES]`
 
@@ -189,24 +200,25 @@ Required. Minimum pressure constraints.
 The first column must match an EPANET node ID. The second column is the minimum
 required pressure in the same units used by the EPANET model.
 
-### `[CATALOG]`
+### `[PIPE_SIZES]`
 
-Required. Available pipe options by series.
+Required. Available pipe options grouped by `group`. `[PIPE_SIZES]` and `group`
+are PPNO problem-file terms, not EPANET sections.
 
 ```ini
-[CATALOG]
+[PIPE_SIZES]
 PVC-SDR41     289.9    130.0     45.73
 PVC-SDR41     386.6    130.0     70.40
 ```
 
 Columns are:
 
-1. series name
+1. group name
 2. diameter
 3. roughness
 4. unit price
 
-Diameters in each series must be strictly increasing. Prices are allowed to be
+Diameters in each group must be strictly increasing. Prices are allowed to be
 non-monotonic, but PPNO logs a warning when a larger diameter is not more
 expensive.
 
@@ -227,7 +239,7 @@ Algorithm DE NSGA2
 2    30.0
 3    30.0
 
-[CATALOG]
+[PIPE_SIZES]
 PVC-SDR41     289.9    130.0     45.73
 PVC-SDR41     386.6    130.0     70.40
 PVC-SDR41     483.2    130.0     98.39
@@ -239,7 +251,7 @@ More complete examples are available under `ppno/examples/`.
 
 ### Stage 1: Unit Headloss and FLS-H
 
-PPNO starts from the smallest catalog diameter for each pipe. It repeatedly runs
+PPNO starts from the smallest available diameter for each pipe. It repeatedly runs
 the hydraulic simulation, identifies pipes with the highest unit headloss, and
 increases diameters until all pressure constraints are satisfied or all
 available diameters are exhausted.
@@ -254,20 +266,6 @@ Stage 1 solution is used as a seed for compatible solvers. Each successful
 candidate is compared against the current best solution, and the final best
 solution is polished again with FLS-H.
 
-## Development
-
-Run tests:
-
-```bash
-uv run --extra dev pytest -q
-```
-
-Build from source:
-
-```bash
-uv build
-```
-
 ## License and Citation
 
 Apache License 2.0
@@ -275,7 +273,7 @@ Apache License 2.0
 If you use PPNO in research:
 
 ```text
-Garcia Martinez, A. (2019-2026).
+García Martínez, A. (2019-2026).
 PPNO: Pressurized Pipe Network Optimizer
 https://github.com/andresgciamtez/ppno
 ```
